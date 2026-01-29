@@ -1,6 +1,6 @@
 hydra:
   run:
-    dir: /home/ubuntu/efs/chuning/logdir/${algo}/${dataset.name}/${exp_id}/${seed}
+    dir: bc_finetune/${algo}/${dataset.name}/${exp_id}/${seed}
 
 algo: ${hydra:runtime.choices.model}
 exp_id: default
@@ -18,7 +18,7 @@ rollout_every: 10000
 num_rollouts: 50
 rollout_length: 1000
 
-batch_size: 36
+batch_size: 1
 num_frames: 19
 obs_num_frames: 2
 clip_grad_norm: null

@@ -1,5 +1,5 @@
 defaults:
-  - dataset: libero_90
+  - dataset: libero_book_caddy
   - model: dp
   - template_train_robomimic
   - template_dp

@@ -35,3 +35,4 @@ MANIFEST
 logdir/
 wandb/
 logs/
+*.log

@@ -11,8 +11,7 @@ fi
 python experiments/uwm/train.py dataset=droid exp_id=benchmark dataset.buffer_path=$BUFFER_PATH
 
 # DP
-# python experiments/dp/train.py dataset=droid exp_id=benchmark dataset.buffer_path=$BUFFER_PATH
-
+# python experiments/dp/train.py dataset=libero_book_caddy exp_id=benchmark dataset.buffer_path=$BUFFER_PATH
 # GR1
 # python experiments/gr1/train.py dataset=droid exp_id=benchmark dataset.buffer_path=$BUFFER_PATH
 

@@ -89,3 +89,6 @@ wandb==0.19.1
 wcwidth==0.2.13
 zarr==2.18.2
 zipp==3.19.2
+easydict
+matplotlib
+bddl

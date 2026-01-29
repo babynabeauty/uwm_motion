@@ -43,6 +43,7 @@ class AdaLNAttentionBlock(nn.Module):
             act=act,
             drop=drop,
         )
+        #将条件向量映射为6个控制参数
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
             nn.Linear(cond_dim, 6 * dim),

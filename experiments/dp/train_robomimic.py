@@ -9,7 +9,7 @@ from omegaconf import OmegaConf
 from hydra.utils import instantiate
 from torch.nn.parallel import DistributedDataParallel
 from tqdm import trange, tqdm
-
+import ipdb
 from datasets.utils.loader import make_distributed_data_loader
 from environments.robomimic import make_robomimic_env
 from experiments.dp.train import (
@@ -67,8 +67,9 @@ def collect_rollout(config, model, device):
 def maybe_collect_rollout(config, step, model, device):
     """Collect rollouts on the main process if it's the correct step."""
     # Skip rollout rollection for pretraining
-    if "libero_90" in config.dataset.name:
-        return
+    #FIXME:直接训练 不微调了
+    # if "libero_90" in config.dataset.name:
+    #     return
 
     if is_main_process() and (
         step % config.rollout_every == 0 or step == (config.num_steps - 1)
@@ -104,6 +105,7 @@ def train(rank, world_size, config):
         train_set, val_set, config.batch_size, rank, world_size
     )
 
+    ipdb.set_trace()
     # Create model
     model = instantiate(config.model).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), **config.optimizer)
@@ -175,7 +177,8 @@ def main(config):
     OmegaConf.resolve(config)
     # Spawn processes
     world_size = torch.cuda.device_count()
-    mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    # mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    train(0, 1, config)
 
 
 if __name__ == "__main__":

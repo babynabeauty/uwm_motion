@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 from torchvision.transforms import Normalize
+import ipdb
 
 from models.common.language import CLIPTextEncoder
 from models.common.transforms import ImageTransform
@@ -64,6 +65,8 @@ class ImageObservationEncoder(nn.Module):
         self.key_transform_map = key_transform_map
 
         # RGB model
+        ipdb.set_trace()
+        print("初始化图像编码器，预训练权重：", pretrained_weights)
         if pretrained_weights == "clip":
             assert not imagenet_norm, "imagenet_norm must be False for CLIP encoder"
             norm = Normalize(
@@ -87,6 +90,7 @@ class ImageObservationEncoder(nn.Module):
         self.low_dim_size = sum([key_shape_map[key][-1] for key in low_dim_keys])
 
         # Language model
+        #FIXME:没有用language
         self.use_language = use_language
         self.text_encoder = (
             CLIPTextEncoder(embed_dim=embed_dim) if use_language else None
@@ -95,6 +99,7 @@ class ImageObservationEncoder(nn.Module):
     def __call__(self, obs_dict):
         # Process rgb observations
         imgs = list()
+        ipdb.set_trace()
         for key in self.rgb_keys:
             img = obs_dict[key].flatten(0, 1)
             assert img.shape[1:] == self.key_shape_map[key]

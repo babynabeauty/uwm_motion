@@ -1,5 +1,5 @@
 defaults:
-  - dataset: droid
+  - dataset: libero_book_caddy
   - model: dp
   - template_train
   - template_dp

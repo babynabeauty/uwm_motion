@@ -126,11 +126,12 @@ def maybe_resume_checkpoint(
 
 def maybe_evaluate(config, step, model, loader, device, action_normalizer=None):
     """Evaluate if it's the correct step."""
-    if step % config.eval_every == 0 or step == (config.num_steps - 1):
-        stats = eval_one_epoch(config, loader, device, model, action_normalizer)
-        if is_main_process():
-            wandb.log({f"eval/{k}": v for k, v in stats.items()})
-            print(f"Step {step} action mse: {stats['action_mse']:.4f}")
+    if step > 0:
+        if step % config.eval_every == 0 or step == (config.num_steps - 1):
+            stats = eval_one_epoch(config, loader, device, model, action_normalizer)
+            if is_main_process():
+                wandb.log({f"eval/{k}": v for k, v in stats.items()})
+                print(f"Step {step} action mse: {stats['action_mse']:.4f}")
 
 
 def maybe_save_checkpoint(

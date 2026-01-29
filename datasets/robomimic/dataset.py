@@ -9,7 +9,7 @@ from datasets.utils.buffer import CompressedTrajectoryBuffer
 from datasets.utils.file_utils import glob_all
 from datasets.utils.sampler import TrajectorySampler
 from datasets.utils.obs_utils import unflatten_obs
-
+import ipdb
 
 class RobomimicDataset(Dataset):
     def __init__(
@@ -23,6 +23,7 @@ class RobomimicDataset(Dataset):
         subsample_ratio: float = 1.0,
         flip_rgb: bool = False,
     ):
+        ipdb.set_trace()
         self.name = name
         self.seq_len = seq_len
         self.flip_rgb = flip_rgb

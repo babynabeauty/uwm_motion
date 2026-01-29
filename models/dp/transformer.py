@@ -4,7 +4,7 @@ import torch.nn as nn
 from models.common.adaln_attention import AdaLNAttentionBlock, AdaLNFinalLayer
 from models.common.utils import SinusoidalPosEmb, init_weights
 from .base_policy import NoisePredictionNet
-
+import ipdb
 
 class TransformerNoisePredictionNet(NoisePredictionNet):
     def __init__(
@@ -21,12 +21,12 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
     ):
         super().__init__()
         self.input_len = input_len
-
+        ipdb.set_trace()
         # Input encoder and decoder
         hidden_dim = int(max(input_dim, embed_dim) * mlp_ratio)
         self.input_encoder = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            nn.Mish(),
+            nn.Mish(), #Mish激活
             nn.Linear(hidden_dim, embed_dim),
         )
         self.output_decoder = nn.Sequential(
@@ -47,12 +47,13 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
         self.pos_embed = nn.Parameter(
             torch.empty(1, input_len, embed_dim).normal_(std=0.02)
         )
-        cond_dim = global_cond_dim + timestep_embed_dim
+        cond_dim = global_cond_dim + timestep_embed_dim #vision token和时间步
+        
         self.blocks = nn.ModuleList(
             [
                 AdaLNAttentionBlock(
                     dim=embed_dim,
-                    cond_dim=cond_dim,
+                    cond_dim=cond_dim,#用时间和vision作为condition
                     num_heads=num_heads,
                     mlp_ratio=mlp_ratio,
                     qkv_bias=qkv_bias,
@@ -81,6 +82,10 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
         nn.init.constant_(self.head.linear.bias, 0)
 
     def forward(self, sample, timestep, global_cond):
+        #sample是noisy action，global_cond是obs
+        #后续拼接上motion token
+        #sample.shape torch.Size([1, 16, 7])
+        ipdb.set_trace()
         # Encode input
         embed = self.input_encoder(sample)
 
