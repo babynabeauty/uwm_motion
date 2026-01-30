@@ -70,20 +70,20 @@ def maybe_collect_rollout(config, step, model, device):
     #FIXME:直接训练 不微调了
     # if "libero_90" in config.dataset.name:
     #     return
-
-    if is_main_process() and (
-        step % config.rollout_every == 0 or step == (config.num_steps - 1)
-    ):
-        success_rate, video = collect_rollout(config, model, device)
-        print(f"Step: {step} success rate: {success_rate}")
-        # Video shape: (T, H, W, C) -> (N, T, C, H, W)
-        video = video.transpose(0, 3, 1, 2)[None]
-        wandb.log(
-            {
-                "rollout/success_rate": success_rate,
-                "rollout/video": wandb.Video(video, fps=10),
-            }
-        )
+    if step > 0:
+        if is_main_process() and (
+            step % config.rollout_every == 0 or step == (config.num_steps - 1)
+        ):
+            success_rate, video = collect_rollout(config, model, device)
+            print(f"Step: {step} success rate: {success_rate}")
+            # Video shape: (T, H, W, C) -> (N, T, C, H, W)
+            video = video.transpose(0, 3, 1, 2)[None]
+            wandb.log(
+                {
+                    "rollout/success_rate": success_rate,
+                    "rollout/video": wandb.Video(video, fps=10),
+                }
+            )
     dist.barrier()
 
 
@@ -105,7 +105,6 @@ def train(rank, world_size, config):
         train_set, val_set, config.batch_size, rank, world_size
     )
 
-    ipdb.set_trace()
     # Create model
     model = instantiate(config.model).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), **config.optimizer)
@@ -147,7 +146,7 @@ def train(rank, world_size, config):
 
             # --- Logging ---
             if is_main_process():
-                pbar.set_description(f"step: {step}, loss: {loss.item():.4f}")
+                pbar.set_description(f"step: {step}, loss: {loss['loss']:.4f},action_loss: {loss['action_loss']:.4f},motion_loss: {loss['motion_loss']:.4f}")
                 wandb.log({f"train/{k}": v for k, v in info.items()})
 
             # --- Evaluate if needed ---
@@ -177,8 +176,8 @@ def main(config):
     OmegaConf.resolve(config)
     # Spawn processes
     world_size = torch.cuda.device_count()
-    # mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
-    train(0, 1, config)
+    mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    # train(0, 1, config)
 
 
 if __name__ == "__main__":

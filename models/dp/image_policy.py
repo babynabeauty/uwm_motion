@@ -40,9 +40,9 @@ class ImageDiffusionPolicy(DiffusionPolicy):
         action = super().sample(obs)
         return action
 
-    def forward(self, obs_dict, action):
+    def forward(self, obs_dict, action,gt_action=None):
         obs = self.obs_encoder(obs_dict)
-        loss = super().forward(obs, action)
+        loss = super().forward(obs, action,gt_action)
         return loss
 
 

@@ -56,7 +56,11 @@ def init_distributed(rank, world_size):
         world_size: total number of processes
     """
     os.environ["MASTER_ADDR"] = os.environ.get("MASTER_ADDR", "localhost")
-    os.environ["MASTER_PORT"] = os.environ.get("MASTER_PORT", "26878")
+    os.environ["MASTER_PORT"] = os.environ.get("MASTER_PORT", "22878")
+
+    #FIXME：启动多卡训练
+    # torch.cuda.set_device(rank)
+
     dist.init_process_group(
         backend="nccl",
         rank=rank,

@@ -23,7 +23,6 @@ class RobomimicDataset(Dataset):
         subsample_ratio: float = 1.0,
         flip_rgb: bool = False,
     ):
-        ipdb.set_trace()
         self.name = name
         self.seq_len = seq_len
         self.flip_rgb = flip_rgb
@@ -85,6 +84,8 @@ class RobomimicDataset(Dataset):
         for key, shape in self._lowdim_shapes.items():
             metadata[f"obs.{key}"] = {"shape": shape, "dtype": np.float32}
         metadata["action"] = {"shape": self._action_shape, "dtype": np.float32}
+        #FIXME:mvs的shape是否需要修改跟dp训练的图像对齐
+        metadata["motion_vector"] = {"shape": (14, 14, 2), "dtype": np.float32}
 
         # Compute buffer capacity
         capacity = 0
@@ -124,6 +125,7 @@ class RobomimicDataset(Dataset):
                     for key in self._lowdim_shapes.keys():
                         episode[f"obs.{key}"] = demo["obs"][key][:]
                     episode["action"] = demo["actions"][:]
+                    episode["motion_vector"] = demo["motion_vectors"][:]
                     buffer.add_episode(episode)
                     pbar.update(1)
         pbar.close()

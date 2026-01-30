@@ -68,7 +68,7 @@ def maybe_collect_rollout(config, step, model, device):
     # Skip rollout rollection for pretraining
     if "libero_90" in config.dataset.name:
         return
-
+    
     if is_main_process() and (
         step % config.rollout_every == 0 or step == (config.num_steps - 1)
     ):

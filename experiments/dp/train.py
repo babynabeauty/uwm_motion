@@ -23,12 +23,14 @@ def process_batch(batch, obs_horizon, action_horizon, device):
 
     # Take the last `action_horizon` actions
     action = batch["action"][:, -action_horizon:].to(device)
+    #FIXME
+    gt_motion = batch["motion_vector"][:, -action_horizon:].to(device)
 
     # Add language tokens to observations
     if "input_ids" in batch and "attention_mask" in batch:
         obs["input_ids"] = batch["input_ids"].to(device)
         obs["attention_mask"] = batch["attention_mask"].to(device)
-    return obs, action
+    return obs, action,gt_motion
 
 
 def eval_one_epoch(config, data_loader, device, model, action_normalizer=None):
@@ -46,15 +48,16 @@ def eval_one_epoch(config, data_loader, device, model, action_normalizer=None):
     stats = {"loss": 0, "action_mse": 0}
     for batch in tqdm(data_loader, desc="Evaluating", disable=not is_main_process()):
         # ------------ Preprocess data ------------ #
-        obs, action = process_batch(
+        obs, action, gt_motion = process_batch(
             batch, config.model.obs_encoder.num_frames, config.model.action_len, device
         )
 
         with torch.no_grad():
             # ------------ Validation loss ------------ #
-            loss = model(obs, action)
-            dist.all_reduce(loss, op=dist.ReduceOp.AVG)
-            stats["loss"] += loss.item()
+            loss = model(obs, action,gt_motion)
+            dist.all_reduce(loss["loss"], op=dist.ReduceOp.AVG)
+            #FIXME:这里的loss已经是一个dict  记得修改
+            stats["loss"] += loss["loss"].item()
 
             # ------------ BC Inference ------------ #
             # Sample actions
@@ -80,7 +83,7 @@ def train_one_step(config, model, optimizer, scheduler, scaler, batch, device):
     model.train()
 
     # --- Preprocess data ---
-    obs, action = process_batch(
+    obs, action, gt_motion = process_batch(
         batch, config.model.obs_encoder.num_frames, config.model.action_len, device
     )
 
@@ -89,12 +92,12 @@ def train_one_step(config, model, optimizer, scheduler, scaler, batch, device):
     with torch.autocast(
         device_type="cuda", dtype=torch.bfloat16, enabled=config.use_amp
     ):
-        loss = model(obs, action)
-        info = {"loss": loss.item(), "action_loss": loss.item()}
+        loss = model(obs, action,gt_motion)
+        info = {"loss": loss["loss"], "action_loss": loss["action_loss"],"motion_loss": loss["motion_loss"]}
 
     # Step optimizer
     optimizer.zero_grad()
-    scaler.scale(loss).backward()
+    scaler.scale(loss["loss"]).backward()
     if config.clip_grad_norm:
         scaler.unscale_(optimizer)
         nn.utils.clip_grad_norm_(model.parameters(), config.clip_grad_norm)
@@ -229,7 +232,8 @@ def train(rank, world_size, config):
 
             # --- Logging ---
             if is_main_process():
-                pbar.set_description(f"step: {step}, loss: {loss.item():.4f}")
+                # pbar.set_description(f"step: {step}, loss: {loss['loss']:.4f}")
+                pbar.set_description(f"step: {step}, loss: {loss['loss']:.4f},action_loss: {loss['action_loss']:.4f},motion_loss: {loss['motion_loss']:.4f}")
                 wandb.log({f"train/{k}": v for k, v in info.items()})
 
             # --- Evaluate if needed ---

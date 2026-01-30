@@ -36,3 +36,4 @@ logdir/
 wandb/
 logs/
 *.log
+bc_finetune/

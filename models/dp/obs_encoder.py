@@ -65,7 +65,6 @@ class ImageObservationEncoder(nn.Module):
         self.key_transform_map = key_transform_map
 
         # RGB model
-        ipdb.set_trace()
         print("初始化图像编码器，预训练权重：", pretrained_weights)
         if pretrained_weights == "clip":
             assert not imagenet_norm, "imagenet_norm must be False for CLIP encoder"
@@ -99,7 +98,6 @@ class ImageObservationEncoder(nn.Module):
     def __call__(self, obs_dict):
         # Process rgb observations
         imgs = list()
-        ipdb.set_trace()
         for key in self.rgb_keys:
             img = obs_dict[key].flatten(0, 1)
             assert img.shape[1:] == self.key_shape_map[key]

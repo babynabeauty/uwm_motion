@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from diffusers.schedulers.scheduling_ddim import DDIMScheduler
-
+import ipdb
 
 class NoisePredictionNet(nn.Module, ABC):
 
@@ -56,14 +56,14 @@ class DiffusionPolicy(nn.Module):
         # Reverse diffusion process
         for t in self.noise_scheduler.timesteps:
             # Predict noise
-            noise_pred = self.noise_pred_net(action, t, global_cond=obs)
+            noise_pred,_ = self.noise_pred_net(action, t, global_cond=obs)
 
             # Diffusion step
             action = self.noise_scheduler.step(noise_pred, t, action).prev_sample
 
         return action
 
-    def forward(self, obs, action):
+    def forward(self, obs, action,gt_motion):
         # Repeat observations and actions for multiple noise samples
         if self.num_train_noise_samples > 1:
             obs = obs.repeat_interleave(self.num_train_noise_samples, dim=0)
@@ -84,9 +84,22 @@ class DiffusionPolicy(nn.Module):
         noisy_action = self.noise_scheduler.add_noise(action, noise, t)
 
         # Diffusion loss
-        noise_pred = self.noise_pred_net(noisy_action, t, global_cond=obs)
-        loss = F.mse_loss(noise_pred, noise)
-        return loss
+        #NOTE:返回的pred_motion_feats已经映射到了一样的维度
+        noise_pred, pred_motion_feats = self.noise_pred_net(noisy_action, t, global_cond=obs)
+
+        action_loss = F.mse_loss(noise_pred, noise)
+        if pred_motion_feats is not None and gt_motion is not None:
+            motion_loss = F.mse_loss(pred_motion_feats, gt_motion)
+            total_loss = action_loss + motion_loss
+        else:
+            motion_loss = torch.tensor(0.0, device=action.device)
+            total_loss = action_loss
+
+        return {
+            "loss": total_loss,
+            "action_loss": action_loss,
+            "motion_loss": motion_loss,
+        }
 
 
 class FlowPolicy(nn.Module):
