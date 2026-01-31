@@ -88,6 +88,7 @@ class DiffusionPolicy(nn.Module):
         noise_pred, pred_motion_feats = self.noise_pred_net(noisy_action, t, global_cond=obs)
 
         action_loss = F.mse_loss(noise_pred, noise)
+        #FIXME:debug只用alignloss来做对齐
         if pred_motion_feats is not None and gt_motion is not None:
             motion_loss = F.mse_loss(pred_motion_feats, gt_motion)
             total_loss = action_loss + motion_loss

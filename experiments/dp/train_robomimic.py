@@ -70,7 +70,7 @@ def maybe_collect_rollout(config, step, model, device):
     #FIXME:直接训练 不微调了
     # if "libero_90" in config.dataset.name:
     #     return
-    if step > 0:
+    if True:
         if is_main_process() and (
             step % config.rollout_every == 0 or step == (config.num_steps - 1)
         ):

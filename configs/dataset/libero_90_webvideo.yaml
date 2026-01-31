@@ -8,12 +8,12 @@ shape_meta: &shape_meta
     eye_in_hand_rgb: *camera_meta
   action:
     shape: [7] # pos + quarternion + gripper
-hdf5_path_globs: &hdf5_path_globs /home/ubuntu/LIBERO/libero/datasets/libero_90/*.hdf5
+hdf5_path_globs: &hdf5_path_globs /data/shared_workspace/zhangshiqi/dataset/libero/datasets/libero_90/*.hdf5
 robot_train_val_sets:
   _target_: datasets.robomimic.make_robomimic_dataset
   name: libero_90
   hdf5_path_globs: *hdf5_path_globs
-  buffer_path: /home/ubuntu/LIBERO/libero/datasets/libero_90/buffer.zarr
+  buffer_path: /data/shared_workspace/zhangshiqi/dataset/libero/datasets/libero_90/buffer.zarr
   shape_meta: *shape_meta
   seq_len: ${num_frames}
   val_ratio: 0.05

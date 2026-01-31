@@ -21,7 +21,7 @@ rollout_length: 1000
 batch_size: 1
 num_frames: 19
 obs_num_frames: 2
-clip_grad_norm: null
+clip_grad_norm: 1
 
 optimizer:
   lr: 4e-4

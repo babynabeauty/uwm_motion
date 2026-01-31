@@ -18,7 +18,7 @@ save_every: 10000
 batch_size: 36
 num_frames: 19
 obs_num_frames: 2
-clip_grad_norm: null
+clip_grad_norm: 1
 
 optimizer:
   lr: 1e-4

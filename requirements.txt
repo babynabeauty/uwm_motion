@@ -92,3 +92,4 @@ zipp==3.19.2
 easydict
 matplotlib
 bddl
+gym
