@@ -30,5 +30,6 @@ noise_pred_net:
   mlp_ratio: 4
   qkv_bias: True
   use_motion_token: False
+  motion_mask: False
 num_train_steps: 100
 num_inference_steps: 10

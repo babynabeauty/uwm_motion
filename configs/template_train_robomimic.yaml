@@ -12,8 +12,8 @@ eval_task_name: ${dataset.name}
 pretrain_checkpoint_path: null
 
 num_steps: 100000
-eval_every: 10000
-save_every: 10000
+eval_every: 1000
+save_every: 1000
 rollout_every: 1000
 num_rollouts: 50
 rollout_length: 1000

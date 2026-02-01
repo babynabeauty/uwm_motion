@@ -54,6 +54,7 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
         mlp_ratio: float = 4.0,
         qkv_bias: bool = True,
         use_motion_token: bool = False,
+        motion_mask: bool = False,
     ):
         super().__init__()
         print("*"*30)
@@ -61,6 +62,7 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
         print("*"*30)
         self.use_motion_token = use_motion_token
         self.input_len = input_len
+        self.motion_mask = motion_mask
         # Input encoder and decoder
         hidden_dim = int(max(input_dim, embed_dim) * mlp_ratio)
         self.input_encoder = nn.Sequential(
@@ -134,6 +136,9 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
         #后续拼接上motion token
         #sample.shape torch.Size([1, 16, 7])
         # Encode input
+        b = sample.shape[0]
+        l_a = sample.shape[1]
+
         embed = self.input_encoder(sample)
 
         # Encode timestep
@@ -146,18 +151,24 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
         # Concatenate timestep and condition along the sequence dimension
         x = embed + self.pos_embed
 
+        attn_mask=None
         if self.use_motion_token:
             #NOTE：加入motiontoken的传播
-            b=sample.shape[0]
             m_tokens = self.motion_tokens.expand(b, -1, -1)
+            l_m = m_tokens.shape[1]
             x = torch.cat([x, m_tokens], dim=1)
-
+            l_total = l_a + l_m
+            mask = torch.ones((l_total,l_total),device=sample.device,dtype=torch.bool)
+            if self.motion_mask:
+                mask[l_a:, :l_a] = False
+                attn_mask = mask.unsqueeze(0).repeat(b, 1, 1)
+        
         cond = torch.cat([global_cond, temb], dim=-1)
 
         #NOTE:取倒数第二层的mv出来做对齐
         intermediate_output = None
         for i, block in enumerate(self.blocks):
-            x = block(x, cond)
+            x = block(x, cond, attn_mask=attn_mask)
             if self.use_motion_token and i == len(self.blocks) - 2:  # 倒数第二个 Block
                 intermediate_output = x
         
