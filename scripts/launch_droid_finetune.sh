@@ -1,7 +1,7 @@
 # Cache dataset
 DATA_NAME=stack_red_bowl_on_blue_bowl
-DATA_DIR="/gscratch/weirdlab/zchuning/data/"
-BUFFER_PATH="/tmp/weirdlab/zchuning/data/droid/buffer_$DATA_NAME.zarr"
+DATA_DIR="/gscratch/weirdlab/zchuning/data1/"
+BUFFER_PATH="/tmp/weirdlab/zchuning/data1/droid/buffer_$DATA_NAME.zarr"
 if [ ! -d $BUFFER_PATH ]; then
   # Cache dataset
   echo "Caching dataset..."

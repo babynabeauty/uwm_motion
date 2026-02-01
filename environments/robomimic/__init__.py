@@ -2,7 +2,7 @@ import os
 
 from .wrappers import RoboMimicEnvWrapper, LIBEROEnvWrapper
 import sys
-libero_path = "/data/workspace/zhangshiqi/LIBERO"
+libero_path = "/data1/workspace/zhangshiqi/LIBERO"
 if libero_path not in sys.path:
     sys.path.append(libero_path)
 
@@ -82,6 +82,17 @@ def make_robomimic_env(
 
         # Create environment
         env = OffScreenRenderEnv(**env_kwargs)
+
+        # #增大视觉偏移
+        # #FIXME
+        # for initializer in env.problem_config.initializers:
+        #         if hasattr(initializer, 'pos_sampler') and initializer.pos_sampler is not None:
+        #             # 假设原本是 [-0.02, 0.02]，现在变为 [-0.05, 0.05]
+        #             initializer.pos_sampler.x_range = [r + (0.03 if i==1 else -0.03) 
+        #                                               for i, r in enumerate(initializer.pos_sampler.x_range)]
+        #             initializer.pos_sampler.y_range = [r + (0.03 if i==1 else -0.03) 
+        #                                               for i, r in enumerate(initializer.pos_sampler.y_range)]
+                    
         obs_keys = list(shape_meta["obs"].keys())
         env = LIBEROEnvWrapper(
             env, obs_keys, obs_horizon, max_episode_length, record=record

@@ -16,6 +16,7 @@ class ImageDiffusionPolicy(DiffusionPolicy):
         num_train_noise_samples: int = 1,
         beta_schedule: str = "squaredcos_cap_v2",
         clip_sample: bool = True,
+        mixture: int = 0,  
     ):
         """
         Assumes rgb input: (B, T, H, W, C) uint8 image
@@ -30,6 +31,7 @@ class ImageDiffusionPolicy(DiffusionPolicy):
             num_train_noise_samples=num_train_noise_samples,
             beta_schedule=beta_schedule,
             clip_sample=clip_sample,
+            mixture=mixture
         )
 
         # Observation encoder

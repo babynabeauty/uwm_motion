@@ -18,7 +18,7 @@ shape_meta: &shape_meta
 robot_train_val_sets:
   _target_: datasets.droid.make_droid_dataset
   name: droid
-  buffer_path: /tmp/weirdlab/zchuning/data/droid/buffer.zarr
+  buffer_path: /tmp/weirdlab/zchuning/data1/droid/buffer.zarr
   shape_meta: *shape_meta
   seq_len: ${num_frames}
   history_len: ${obs_num_frames}
@@ -29,8 +29,8 @@ video_train_val_sets:
   _target_: datasets.webvideo.make_multiview_video_dataset
   name: webvideo
   index_paths: [
-    /gscratch/weirdlab/zchuning/data/k400_filtered.txt,
-    /gscratch/weirdlab/zchuning/data/ssv2_filtered.txt,
+    /gscratch/weirdlab/zchuning/data1/k400_filtered.txt,
+    /gscratch/weirdlab/zchuning/data1/ssv2_filtered.txt,
   ]
   shape_meta: *shape_meta
   seq_len: ${num_frames}

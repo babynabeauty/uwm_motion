@@ -1,6 +1,7 @@
 _target_: models.dp.ImageDiffusionPolicy
 action_len: 16
 action_dim: ${dataset.shape_meta.action.shape[0]}
+mixture: 0
 obs_encoder:
   _target_: models.dp.ImageObservationEncoder
   shape_meta: ${dataset.shape_meta}

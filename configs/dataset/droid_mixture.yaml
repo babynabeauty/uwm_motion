@@ -3,6 +3,6 @@ defaults:
   - _self_
 
 name: droid_mixture
-buffer_path: /tmp/weirdlab/zchuning/data/droid/buffer.zarr
-video_buffer_path: /tmp/weirdlab/zchuning/data/droid/video_buffer.zarr
+buffer_path: /tmp/weirdlab/zchuning/data1/droid/buffer.zarr
+video_buffer_path: /tmp/weirdlab/zchuning/data1/droid/video_buffer.zarr
 balance_datasets: False

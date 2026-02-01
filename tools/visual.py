@@ -95,8 +95,8 @@ def plot_all_metrics(log_files, smooth_window=100):
 
 if __name__ == "__main__":
     logs_to_plot = {
-        "Baseline": "/data/workspace/zhangshiqi/uwm_motion/NO_MV_libero_bowl_drawer.log",
-        "Motion_WithMask": "/data/workspace/zhangshiqi/uwm_motion/MV_MASK_libero_bowl_drawer.log"
+        "Baseline": "/data1/workspace/zhangshiqi/uwm_motion/NO_MV_libero_bowl_drawer.log",
+        "Motion_WithMask": "/data1/workspace/zhangshiqi/uwm_motion/MV_MASK_libero_bowl_drawer.log"
     }
     
     plot_all_metrics(logs_to_plot, smooth_window=100)

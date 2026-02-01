@@ -208,12 +208,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_name", type=str, default="droid")
     parser.add_argument(
-        "--data_dir", type=str, default="/gscratch/weirdlab/memmelma/data/"
+        "--data_dir", type=str, default="/gscratch/weirdlab/memmelma/data1/"
     )
     parser.add_argument(
         "--buffer_path",
         type=str,
-        default="/gscratch/weirdlab/zchuning/data/droid/buffer.zarr",
+        default="/gscratch/weirdlab/zchuning/data1/droid/buffer.zarr",
     )
     parser.add_argument("--num_episodes", type=int, default=500)
     parser.add_argument("--num_workers", type=int, default=8)

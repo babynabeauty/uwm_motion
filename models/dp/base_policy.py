@@ -24,6 +24,7 @@ class DiffusionPolicy(nn.Module):
         num_train_noise_samples=1,
         beta_schedule="squaredcos_cap_v2",
         clip_sample=True,
+        mixture=False,
     ):
         super().__init__()
         self.action_len = action_len
@@ -31,6 +32,9 @@ class DiffusionPolicy(nn.Module):
         self.num_train_steps = num_train_steps
         self.num_inference_steps = num_inference_steps
         self.num_train_noise_samples = num_train_noise_samples
+
+        #FIXME:是否要混合损失
+        self.mixture = mixture
 
         # Noise prediction net
         assert isinstance(noise_pred_net, NoisePredictionNet)
@@ -87,7 +91,17 @@ class DiffusionPolicy(nn.Module):
         #NOTE:返回的pred_motion_feats已经映射到了一样的维度
         noise_pred, pred_motion_feats = self.noise_pred_net(noisy_action, t, global_cond=obs)
 
-        action_loss = F.mse_loss(noise_pred, noise)
+        action_loss_raw = F.mse_loss(noise_pred, noise)
+
+        if self.mixture != 0:
+            action_mask = (torch.rand(action.shape[0], device=action.device) > self.mixture).float()
+            if action_mask.sum() > 0:
+                action_loss = (action_loss_raw * action_mask).sum() / action_mask.sum()
+            else:
+                # 防止这一 batch 随机出来全是 0 (概率极低)
+                action_loss = action_loss_raw.mean() * 0.0
+        
+        print("action_active_ratio",action_mask.mean().item())
         #FIXME:debug只用alignloss来做对齐
         if pred_motion_feats is not None and gt_motion is not None:
             motion_loss = F.mse_loss(pred_motion_feats, gt_motion)

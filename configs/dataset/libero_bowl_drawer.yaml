@@ -3,5 +3,5 @@ defaults:
   - _self_
 
 name: libero_bowl_drawer
-hdf5_path_globs: /data/shared_workspace/zhangshiqi/dataset/libero/datasets/libero_10/KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_demo.hdf5
-buffer_path: /data/shared_workspace/zhangshiqi/dataset/libero/datasets/libero_10/KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_demo.zarr
+hdf5_path_globs: /data1/shared_workspace/zhangshiqi/dataset/libero/datasets/libero_10/KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_demo.hdf5
+buffer_path: /data1/shared_workspace/zhangshiqi/dataset/libero/datasets/libero_10/KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_demo.zarr
