@@ -1,6 +1,6 @@
 # Cache dataset
-DATA_DIR="/gscratch/weirdlab/memmelma/data1/"
-BUFFER_PATH="/tmp/weirdlab/zchuning/data1/droid/buffer_weird.zarr"
+DATA_DIR="/gscratch/weirdlab/memmelma/data/"
+BUFFER_PATH="/tmp/weirdlab/zchuning/data/droid/buffer_weird.zarr"
 if [ ! -d $BUFFER_PATH ]; then
   # Cache dataset
   echo "Caching dataset..."

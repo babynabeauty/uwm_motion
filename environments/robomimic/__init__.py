@@ -2,7 +2,7 @@ import os
 
 from .wrappers import RoboMimicEnvWrapper, LIBEROEnvWrapper
 import sys
-libero_path = "/data1/workspace/zhangshiqi/LIBERO"
+libero_path = "/data/workspace/zhangshiqi/LIBERO"
 if libero_path not in sys.path:
     sys.path.append(libero_path)
 

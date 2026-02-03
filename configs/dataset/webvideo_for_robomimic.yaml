@@ -1,8 +1,8 @@
 _target_: datasets.webvideo.make_multiview_video_dataset
 name: webvideo_for_robomimic
 index_paths: [
-  /gscratch/weirdlab/zchuning/data1/k400_filtered.txt,
-  /gscratch/weirdlab/zchuning/data1/ssv2_filtered.txt,
+  /gscratch/weirdlab/zchuning/data/k400_filtered.txt,
+  /gscratch/weirdlab/zchuning/data/ssv2_filtered.txt,
 ]
 shape_meta:
   obs:

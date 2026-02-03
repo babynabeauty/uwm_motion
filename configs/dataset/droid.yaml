@@ -1,7 +1,7 @@
 _target_: datasets.droid.make_droid_dataset
 name: droid
 
-buffer_path: /tmp/weirdlab/zchuning/data1/droid/buffer.zarr
+buffer_path: /tmp/weirdlab/zchuning/data/droid/buffer.zarr
 shape_meta:
   # acceptable types: rgb, low_dim
   obs:

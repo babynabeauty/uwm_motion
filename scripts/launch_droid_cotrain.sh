@@ -1,7 +1,7 @@
-DATA_DIR="/gscratch/weirdlab/memmelma/data1/"
+DATA_DIR="/gscratch/weirdlab/memmelma/data/"
 
 # Cache robot dataset
-ROBOT_BUFFER_PATH="/tmp/weirdlab/zchuning/data1/droid/buffer_weird.zarr"
+ROBOT_BUFFER_PATH="/tmp/weirdlab/zchuning/data/droid/buffer_weird.zarr"
 if [ ! -d $ROBOT_BUFFER_PATH ]; then
   # Cache dataset
   echo "Caching robot dataset..."
@@ -9,7 +9,7 @@ if [ ! -d $ROBOT_BUFFER_PATH ]; then
 fi
 
 # Cache video dataset
-VIDEO_BUFFER_PATH="/tmp/weirdlab/zchuning/data1/droid/buffer_video.zarr"
+VIDEO_BUFFER_PATH="/tmp/weirdlab/zchuning/data/droid/buffer_video.zarr"
 if [ ! -d $VIDEO_BUFFER_PATH ]; then
   # Cache dataset
   echo "Caching video dataset..."

@@ -35,5 +35,6 @@ MANIFEST
 logdir/
 wandb/
 logs/
+log/
 *.log
 bc_finetune/
