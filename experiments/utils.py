@@ -48,6 +48,18 @@ def init_wandb(config, job_type):
     )
 
 
+import socket
+def find_free_port():
+    """找到一个当前可用的空闲端口。
+   一个临时socket绑定到端口0，系统会自动分配一个空闲端口。 通过创建
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        port = s.getsockname()[1]
+        return str(port)
+    
+
 def init_distributed(rank, world_size):
     """Initialize distributed training and set visible device.
 
@@ -55,8 +67,11 @@ def init_distributed(rank, world_size):
         rank: unique identifier of each process
         world_size: total number of processes
     """
-    os.environ["MASTER_ADDR"] = os.environ.get("MASTER_ADDR", "localhost")
-    os.environ["MASTER_PORT"] = os.environ.get("MASTER_PORT", "23000")
+    
+    if "MASTER_ADDR" not in os.environ:
+            os.environ["MASTER_ADDR"] = "localhost"
+    if "MASTER_PORT" not in os.environ:
+        os.environ["MASTER_PORT"] = "23000"
 
     dist.init_process_group(
         backend="nccl",

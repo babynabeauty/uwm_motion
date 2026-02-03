@@ -10,6 +10,8 @@ from hydra.utils import instantiate
 from torch.nn.parallel import DistributedDataParallel
 from tqdm import trange, tqdm
 import ipdb
+import os
+from experiments.utils import find_free_port
 from datasets.utils.loader import make_distributed_data_loader
 from environments.robomimic import make_robomimic_env
 from experiments.dp.train import (
@@ -175,6 +177,12 @@ def main(config):
     # Resolve hydra config
     OmegaConf.resolve(config)
     # Spawn processes
+
+    if "MASTER_PORT" not in os.environ:
+        os.environ["MASTER_PORT"] = find_free_port()
+    if "MASTER_ADDR" not in os.environ:
+        os.environ["MASTER_ADDR"] = "localhost"
+        
     world_size = torch.cuda.device_count()
     mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
     # train(0, 1, config)
