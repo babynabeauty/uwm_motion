@@ -76,7 +76,6 @@ class RobomimicDataset(Dataset):
 
     def _init_buffer(self, hdf5_path_globs, buffer_path):
         hdf5_paths = glob_all(hdf5_path_globs)
-
         # Create metadata
         metadata = {}
         for key, shape in self._image_shapes.items():
@@ -106,6 +105,7 @@ class RobomimicDataset(Dataset):
         )
 
         # If buffer is restored from disk, return it
+        
         if buffer.restored:
             return buffer
 
@@ -146,6 +146,7 @@ class RobomimicDataset(Dataset):
 
         # Unflatten observations
         data = unflatten_obs(data)
+        
         return data
 
     def get_validation_dataset(self):

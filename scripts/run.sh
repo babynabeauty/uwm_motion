@@ -5,10 +5,10 @@ LOG_BASE_DIR="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/"
 mkdir -p "$LOG_BASE_DIR"
 
 # 2. 数据集列表
-datasets=("libero_book_caddy")
+datasets=("libero_mug_mug")
 
 # 3. 显卡配置
-gpus=(3 4 5 6 7)
+gpus=(1 2 3 5)
 num_gpus=${#gpus[@]}
 gpu_idx=0
 
@@ -22,7 +22,7 @@ for ds in "${datasets[@]}"; do
         "MV_Mask_no_mixture;True;True;0"
         "MV_no_Mask_3_mixture;True;False;0.3"
         "MV_Mask_3_mixture;True;True;0.3"
-        "baseline;False;False;0"
+        # "baseline;False;False;0"
     )
 
     for set_str in "${settings[@]}"; do

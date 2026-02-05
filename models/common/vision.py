@@ -6,7 +6,7 @@ import torch.nn as nn
 import torchvision
 from einops import rearrange
 from torchvision.transforms import Normalize
-
+import os
 
 def get_imagenet_norm(inplace=True):
     """
@@ -115,10 +115,12 @@ def get_clip(embed_dim, **kwargs):
         embed_dim (int): The dimension of the output embedding.
         **kwargs: Additional keyword arguments to be passed to the timm model creation function.
     """
+
     clip = timm.create_model(
         "hf_hub:timm/vit_base_patch32_clip_224.openai", pretrained=True, **kwargs
     )
     clip.head = nn.Linear(768, embed_dim)
+
     return clip
 
 

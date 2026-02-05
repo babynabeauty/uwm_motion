@@ -115,3 +115,28 @@ class FreezeParameters:
     def __exit__(self, exc_type, exc_val, exc_tb):
         for i, param in enumerate(self.params):
             param.requires_grad = self.param_states[i]
+
+
+LIBERO10_INFO = {
+    'KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it_demo.hdf5': "turn on the stove and put the moka pot on it",
+    'KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_demo.hdf5': "put the black bowl in the bottom drawer of the cabinet and close it",
+    'KITCHEN_SCENE6_put_the_yellow_and_white_mug_in_the_microwave_and_close_it_demo.hdf5': "put the yellow and white mug in the microwave and close it",
+    'KITCHEN_SCENE8_put_both_moka_pots_on_the_stove_demo.hdf5': "put both moka pots on the stove",
+    'LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket_demo.hdf5': "put both the alphabet soup and the cream cheese box in the basket",
+    'LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket_demo.hdf5': "put both the alphabet soup and the tomato sauce in the basket",
+    'LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket_demo.hdf5': "put both the cream cheese box and the butter in the basket",
+    'LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate_demo.hdf5': "put the white mug on the left plate and put the yellow and white mug on the right plate",
+    'LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate_demo.hdf5': "put the white mug on the plate and put the chocolate pudding to the right of the plate",
+    'STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy_demo.hdf5': "pick up the book and place it in the back compartment of the caddy"
+}
+
+def get_libero_instruction(hdf5_path):
+    """
+    鲁棒性获取指令：
+    1. 尝试匹配文件名（针对 LIBERO-10）
+    2. 如果匹配不到，则返回一个通用的默认指令
+    """
+    import os
+    filename = os.path.basename(hdf5_path)
+    # 优先匹配全名，匹配不到则返回默认
+    return LIBERO10_INFO.get(filename, "robot complete the task")
