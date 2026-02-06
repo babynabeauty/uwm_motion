@@ -75,6 +75,7 @@ def collect_rollout(config, model, device):
         
         task_sr = sum(successes) / len(successes)
         all_results[f"rollout/success_rate_{task_name}"] = task_sr
+        print(f"Task {task_name}: {task_sr:.4f}")
         total_success_rate += task_sr
         last_video = env.get_video()
         env.close() # 建议加上，释放环境资源
