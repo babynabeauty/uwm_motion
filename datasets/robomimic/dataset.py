@@ -84,7 +84,9 @@ class RobomimicDataset(Dataset):
             metadata[f"obs.{key}"] = {"shape": shape, "dtype": np.float32}
         metadata["action"] = {"shape": self._action_shape, "dtype": np.float32}
         #FIXME:mvs的shape是否需要修改跟dp训练的图像对齐
-        metadata["motion_vector"] = {"shape": (14, 14, 2), "dtype": np.float32}
+        # metadata["motion_vector"] = {"shape": (14, 14, 2), "dtype": np.float32}
+        metadata["optical_flow_raft_latent"] = {"shape": (4, 28, 28), "dtype": np.float32}
+
 
         # Compute buffer capacity
         capacity = 0
@@ -125,7 +127,9 @@ class RobomimicDataset(Dataset):
                     for key in self._lowdim_shapes.keys():
                         episode[f"obs.{key}"] = demo["obs"][key][:]
                     episode["action"] = demo["actions"][:]
-                    episode["motion_vector"] = demo["motion_vectors"][:]
+                    # episode["motion_vector"] = demo["motion_vectors"][:]
+                    episode["optical_flow_raft_latent"] = demo["optical_flow_raft_latent"][:]
+
                     buffer.add_episode(episode)
                     pbar.update(1)
         pbar.close()

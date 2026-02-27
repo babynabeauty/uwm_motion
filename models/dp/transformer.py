@@ -8,36 +8,38 @@ import ipdb
 
 
 class MotionProjector(nn.Module):
-    def __init__(self, embed_dim, hidden_dim=512):
+    def __init__(
+        self,
+        embed_dim,
+        hidden_dim=512,
+        #输入optical flow
+        latent_channels=4,
+        latent_height=28,
+        latent_width=28,
+    ):
         super().__init__()
-        # 第一步：先映射到一个足以支撑 14x14 分辨率的特征空间
-        # 14 * 14 = 196
+        self.latent_channels = latent_channels
+        self.latent_height = latent_height
+        self.latent_width = latent_width
+        out_dim = latent_channels * latent_height * latent_width
+
         self.fc = nn.Sequential(
             nn.Linear(embed_dim, hidden_dim),
             nn.Mish(),
-            nn.Linear(hidden_dim, 14 * 14 * 16), # 16是中间通道数
-        )
-        
-        # 第二步：空间维度细化
-        self.conv_head = nn.Sequential(
-            nn.Conv2d(16, 16, kernel_size=3, padding=1),
-            nn.Mish(),
-            nn.Conv2d(16, 2, kernel_size=1) # 最终输出 2 通道 (dx, dy)
+            nn.Linear(hidden_dim, out_dim),
         )
 
     def forward(self, motion_feats):
         # motion_feats shape: (B, motion_len, embed_dim)
-        b, l, d = motion_feats.shape
-        
-        # 映射并展开空间维度
-        x = self.fc(motion_feats) # (B, L, 14*14*16)
-        x = x.view(b * l, 16, 14, 14) # 准备进入 CNN 处理空间相关性
-        
-        # 局部特征优化
-        out = self.conv_head(x) # (B*L, 2, 14, 14)
-        
-        # 还原回你的 GT 形状: (B, L, 14, 14, 2)
-        out = out.permute(0, 2, 3, 1).view(b, l, 14, 14, 2)
+        b, l, _ = motion_feats.shape
+        out = self.fc(motion_feats)
+        out = out.view(
+            b,
+            l,
+            self.latent_channels,
+            self.latent_height,
+            self.latent_width,
+        )
         return out
     
 
@@ -55,6 +57,9 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
         qkv_bias: bool = True,
         use_motion_token: bool = False,
         motion_mask: bool = False,
+        motion_latent_channels: int = 4,
+        motion_latent_height: int = 28,
+        motion_latent_width: int = 28,
     ):
         super().__init__()
         print("*"*30)
@@ -63,6 +68,9 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
         self.use_motion_token = use_motion_token
         self.input_len = input_len
         self.motion_mask = motion_mask
+        self.motion_latent_channels = motion_latent_channels
+        self.motion_latent_height = motion_latent_height
+        self.motion_latent_width = motion_latent_width
         # Input encoder and decoder
         hidden_dim = int(max(input_dim, embed_dim) * mlp_ratio)
         self.input_encoder = nn.Sequential(
@@ -95,7 +103,13 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
             nn.init.normal_(self.motion_tokens, std=0.02)
             #NOTE：加入motion-token的映射层
             #FIXME:这里的hidden_dim和上面input_encoder的hidden_dim是一样的
-            self.motion_projector = MotionProjector(embed_dim=embed_dim, hidden_dim=hidden_dim)
+            self.motion_projector = MotionProjector(
+                embed_dim=embed_dim,
+                hidden_dim=hidden_dim,
+                latent_channels=motion_latent_channels,
+                latent_height=motion_latent_height,
+                latent_width=motion_latent_width,
+            )
         
         cond_dim = global_cond_dim + timestep_embed_dim #vision token和时间步
         
@@ -172,10 +186,10 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
             if self.use_motion_token and i == len(self.blocks) - 2:  # 倒数第二个 Block
                 intermediate_output = x
         
-        pred_mvs = None
+        pred_motion_latents = None
         if self.use_motion_token:
             motion_feats = intermediate_output[:, -self.input_len :, :]
-            pred_mvs = self.motion_projector(motion_feats)
+            pred_motion_latents = self.motion_projector(motion_feats)
             # 这里的 x 需要截断，只保留 action 部分进入 head
             action_out = x[:, : self.input_len, :]
         else:
@@ -183,4 +197,4 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
 
         x = self.head(action_out, cond)
         out = self.output_decoder(x)
-        return out,pred_mvs
+        return out, pred_motion_latents

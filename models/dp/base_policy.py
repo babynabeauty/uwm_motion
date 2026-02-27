@@ -67,11 +67,15 @@ class DiffusionPolicy(nn.Module):
 
         return action
 
-    def forward(self, obs, action,gt_motion):
+    def forward(self, obs, action, gt_motion):
         # Repeat observations and actions for multiple noise samples
         if self.num_train_noise_samples > 1:
             obs = obs.repeat_interleave(self.num_train_noise_samples, dim=0)
             action = action.repeat_interleave(self.num_train_noise_samples, dim=0)
+            if gt_motion is not None:
+                gt_motion = gt_motion.repeat_interleave(
+                    self.num_train_noise_samples, dim=0
+                )
 
         # Sample random noise
         noise = torch.randn_like(action)
@@ -89,7 +93,9 @@ class DiffusionPolicy(nn.Module):
 
         # Diffusion loss
         #NOTE:返回的pred_motion_feats已经映射到了一样的维度
-        noise_pred, pred_motion_feats = self.noise_pred_net(noisy_action, t, global_cond=obs)
+        noise_pred, pred_motion_feats = self.noise_pred_net(
+            noisy_action, t, global_cond=obs
+        )
 
         action_loss = F.mse_loss(noise_pred, noise)
 
@@ -104,6 +110,11 @@ class DiffusionPolicy(nn.Module):
         # print("action_active_ratio",action_mask.mean().item())
         #FIXME:debug只用alignloss来做对齐
         if pred_motion_feats is not None and gt_motion is not None:
+            if pred_motion_feats.shape != gt_motion.shape:
+                raise ValueError(
+                    f"Motion target shape mismatch: pred={pred_motion_feats.shape}, "
+                    f"gt={gt_motion.shape}. Please set motion latent shape config to match dataset."
+                )
             motion_loss = F.mse_loss(pred_motion_feats, gt_motion)
             total_loss = action_loss + motion_loss
         else:

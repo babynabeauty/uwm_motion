@@ -23,14 +23,18 @@ def process_batch(batch, obs_horizon, action_horizon, device):
 
     # Take the last `action_horizon` actions
     action = batch["action"][:, -action_horizon:].to(device)
-    #FIXME
-    gt_motion = batch["motion_vector"][:, -action_horizon:].to(device)
+    if "optical_flow_raft_latent" in batch:
+        gt_motion = batch["optical_flow_raft_latent"][:, -action_horizon:].to(device)
+    elif "motion_vector" in batch:
+        gt_motion = batch["motion_vector"][:, -action_horizon:].to(device)
+    else:
+        gt_motion = None
 
     # Add language tokens to observations
     if "input_ids" in batch and "attention_mask" in batch:
         obs["input_ids"] = batch["input_ids"].to(device)
         obs["attention_mask"] = batch["attention_mask"].to(device)
-    return obs, action,gt_motion
+    return obs, action, gt_motion
 
 
 def eval_one_epoch(config, data_loader, device, model, action_normalizer=None):

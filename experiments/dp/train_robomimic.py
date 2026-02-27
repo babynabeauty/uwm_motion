@@ -85,7 +85,7 @@ def collect_rollout(config, model, device):
     return all_results, last_video
 
 def maybe_collect_rollout(config, step, model, device):
-    if step > -1:
+    if step > 1000:
         if is_main_process() and (
             step % config.rollout_every == 0 or step == (config.num_steps - 1)
         ):
@@ -121,6 +121,11 @@ def train(rank, world_size, config):
     train_loader, val_loader = make_distributed_data_loader(
         train_set, val_set, config.batch_size, rank, world_size
     )
+    if is_main_process():
+        print(
+            "Motion supervision key: optical_flow_raft_latent "
+            "(fallback to motion_vector in train.py)."
+        )
 
     # Create model
     model = instantiate(config.model).to(device)
