@@ -85,7 +85,7 @@ def collect_rollout(config, model, device):
     return all_results, last_video
 
 def maybe_collect_rollout(config, step, model, device):
-    if step > 1000:
+    if step > -1:
         if is_main_process() and (
             step % config.rollout_every == 0 or step == (config.num_steps - 1)
         ):
@@ -169,7 +169,7 @@ def train(rank, world_size, config):
             # --- Logging ---
             if is_main_process():
                 pbar.set_description(f"step: {step}, loss: {loss['loss']:.4f},action_loss: {loss['action_loss']:.4f},motion_loss: {loss['motion_loss']:.4f}")
-                wandb.log({f"train/{k}": v for k, v in info.items()})
+                wandb.log({f"train/{k}": v for k, v in info.items()}, step=step)
 
             # --- Evaluate if needed ---
             maybe_evaluate(config, step, model, val_loader, device)

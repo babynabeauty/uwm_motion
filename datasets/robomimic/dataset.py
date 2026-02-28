@@ -113,26 +113,36 @@ class RobomimicDataset(Dataset):
 
         # Otherwise, load episodes to buffer
         pbar = tqdm(total=num_episodes, desc="Loading episodes to buffer")
+        failed_episodes = 0
         for hdf5_path in hdf5_paths:
             with h5py.File(hdf5_path) as f:
                 demos = f["data"]
                 for i in range(len(demos)):
-                    demo = demos[f"demo_{i}"]
-                    episode = {}
-                    for key in self._image_shapes.keys():
-                        if self.flip_rgb:
-                            episode[f"obs.{key}"] = demo["obs"][key][:][:, ::-1]
-                        else:
+                    try:
+                        demo = demos[f"demo_{i}"]
+                        episode = {}
+                        for key in self._image_shapes.keys():
+                            if self.flip_rgb:
+                                episode[f"obs.{key}"] = demo["obs"][key][:][:, ::-1]
+                            else:
+                                episode[f"obs.{key}"] = demo["obs"][key][:]
+                        for key in self._lowdim_shapes.keys():
                             episode[f"obs.{key}"] = demo["obs"][key][:]
-                    for key in self._lowdim_shapes.keys():
-                        episode[f"obs.{key}"] = demo["obs"][key][:]
-                    episode["action"] = demo["actions"][:]
-                    # episode["motion_vector"] = demo["motion_vectors"][:]
-                    episode["optical_flow_raft_latent"] = demo["optical_flow_raft_latent"][:]
+                        episode["action"] = demo["actions"][:]
+                        # episode["motion_vector"] = demo["motion_vectors"][:]
+                        episode["optical_flow_raft_latent"] = demo["optical_flow_raft_latent"][:]
 
-                    buffer.add_episode(episode)
-                    pbar.update(1)
+                        buffer.add_episode(episode)
+                        pbar.update(1)
+                    except OSError as e:
+                        failed_episodes += 1
+                        print(f"\nWarning: Failed to read demo_{i} from {hdf5_path}: {e}")
+                        print(f"Skipping this episode (total failed: {failed_episodes})...")
+                        pbar.update(1)
+                        continue
         pbar.close()
+        if failed_episodes > 0:
+            print(f"\nTotal episodes failed to load: {failed_episodes}/{num_episodes}")
         return buffer
 
     def __len__(self) -> int:

@@ -23,12 +23,13 @@ def process_batch(batch, obs_horizon, action_horizon, device):
 
     # Take the last `action_horizon` actions
     action = batch["action"][:, -action_horizon:].to(device)
+    gt_motion = None
     if "optical_flow_raft_latent" in batch:
         gt_motion = batch["optical_flow_raft_latent"][:, -action_horizon:].to(device)
-    elif "motion_vector" in batch:
-        gt_motion = batch["motion_vector"][:, -action_horizon:].to(device)
-    else:
-        gt_motion = None
+    # elif "motion_vector" in batch:
+    #     gt_motion = batch["motion_vector"][:, -action_horizon:].to(device)
+    # else:
+    #     gt_motion = None
 
     # Add language tokens to observations
     if "input_ids" in batch and "attention_mask" in batch:
@@ -137,7 +138,7 @@ def maybe_evaluate(config, step, model, loader, device, action_normalizer=None):
         if step % config.eval_every == 0 or step == (config.num_steps - 1):
             stats = eval_one_epoch(config, loader, device, model, action_normalizer)
             if is_main_process():
-                wandb.log({f"eval/{k}": v for k, v in stats.items()})
+                wandb.log({f"eval/{k}": v for k, v in stats.items()}, step=step)
                 print(f"Step {step} action mse: {stats['action_mse']:.4f}")
 
 
@@ -238,7 +239,7 @@ def train(rank, world_size, config):
             if is_main_process():
                 # pbar.set_description(f"step: {step}, loss: {loss['loss']:.4f}")
                 pbar.set_description(f"step: {step}, loss: {loss['loss']:.4f},action_loss: {loss['action_loss']:.4f},motion_loss: {loss['motion_loss']:.4f}")
-                wandb.log({f"train/{k}": v for k, v in info.items()})
+                wandb.log({f"train/{k}": v for k, v in info.items()}, step=step)
 
             # --- Evaluate if needed ---
             maybe_evaluate(

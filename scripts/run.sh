@@ -5,10 +5,10 @@ LOG_BASE_DIR="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/"
 mkdir -p "$LOG_BASE_DIR"
 
 # 2. 数据集列表
-datasets=("libero_mug_mug")
+datasets=("libero_mug_microwave")
 
 # 3. 显卡配置
-gpus=(1 2 3 5)
+gpus=(0 1 2 3)
 num_gpus=${#gpus[@]}
 gpu_idx=0
 
