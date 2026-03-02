@@ -6,8 +6,13 @@ import numpy as np
 def parse_log(file_path):
     data = {'eval_step': [], 'success_rate': []}
     
-    # 匹配成功率 (兼容不同格式)
-    eval_pattern = re.compile(r"Step:\s+(\d+)\s+success[ -]rate:\s+([\d.]+)", re.IGNORECASE)
+    # 匹配成功率：兼容以下两种格式
+    # 1) Step: 2000 success rate: 0.08
+    # 2) Step: 2000 | Avg Success Rate: 0.1600
+    eval_pattern = re.compile(
+        r"Step:\s*(\d+)\s*(?:\|\s*)?(?:Avg\s*)?Success[ -]?Rate:\s*([0-9]*\.?[0-9]+)",
+        re.IGNORECASE,
+    )
     
     if not os.path.exists(file_path):
         print(f"警告: 文件 {file_path} 不存在")
@@ -78,11 +83,12 @@ def plot_success_rates(log_files):
 
 if __name__ == "__main__":
     logs_to_plot = {
-        "Baseline":"/data/workspace/zhangshiqi/uwm_motion/log/moka_moka_baseline.log",
-        "MV_MASK_mixture_3":"/data/workspace/zhangshiqi/uwm_motion/log/moka_moka_MV_MASK_mixture_3.log",
-        "MV_MASK_no_mixture":"/data/workspace/zhangshiqi/uwm_motion/log/moka_moka_MV_MASK_no_mixture.log",
-        "MV_no_MASK_3_mixture":"/data/workspace/zhangshiqi/uwm_motion/log/moka_moka_MV_no_MASK_3_mixture.log",
-        "MV_no_MASK_no_mixture":"/data/workspace/zhangshiqi/uwm_motion/log/moka_moka_MV_no_MASK_no_mixture.log"
+        "Baseline":"/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_bowl_drawer/libero_bowl_drawer_baseline_V2.log",
+        "RAFT_MASK_no_mixture":"/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_bowl_drawer/libero_bowl_drawer_RAFT_MASK_no_mixture_V2.log",
+        # "RAFT_no_MASK_no_mixture":"/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_bowl_drawer/libero_bowl_drawer_RAFT_no_MASK_no_mixture_V2.log",
+        # "RAFT_no_MASK_5_mixture":"/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_bowl_drawer/libero_bowl_drawer_RAFT_no_MASK_5_mixture_V2.log",
+        "RAFT_MASK_5_mixture":"/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_bowl_drawer/libero_bowl_drawer_RAFT_MASK_5_mixture_V2.log"
+
     }
     
     plot_success_rates(logs_to_plot)

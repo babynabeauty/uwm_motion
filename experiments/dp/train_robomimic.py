@@ -85,7 +85,7 @@ def collect_rollout(config, model, device):
     return all_results, last_video
 
 def maybe_collect_rollout(config, step, model, device):
-    if step > 1000:
+    if step > -1:
         if is_main_process() and (
             step % config.rollout_every == 0 or step == (config.num_steps - 1)
         ):
