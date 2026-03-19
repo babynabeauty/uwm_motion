@@ -12,3 +12,4 @@ shape_meta:
     shape: [7] # pos + quarternion + gripper
 seq_len: ${num_frames}
 val_ratio: 0.05
+normalize_action: False

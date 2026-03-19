@@ -157,7 +157,7 @@ class FlowPolicy(nn.Module):
         action = torch.randn(
             (obs.shape[0], self.action_len, self.action_dim), device=obs.device
         )
-
+        ipdb.set_trace()
         for tcont, tcont_next in zip(self.timesteps[:-1], self.timesteps[1:]):
             # Predict noise
             t = (tcont * self.num_train_steps).long()

@@ -14,3 +14,4 @@ seq_len: ${num_frames}
 val_ratio: 0.05
 subsample_ratio: 1.0
 flip_rgb: True
+normalize_action: False

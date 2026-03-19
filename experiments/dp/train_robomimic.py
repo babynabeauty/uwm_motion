@@ -25,19 +25,20 @@ from experiments.dp.train import (
 from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process,get_libero_instruction
 
 
-def collect_rollout(config, model, device):
+def collect_rollout(config, model, device, rank, world_size):
     model.eval()
     model = getattr(model, "module", model)
     
     hdf5_paths = glob_all(config.dataset.hdf5_path_globs)
-    tokenizer = CLIPTokenizer.from_pretrained('/data/shared_workspace/LLM_weights/openai/clip-vit-base-patch32')
+    my_paths = hdf5_paths[rank::world_size]
+
+    tokenizer = CLIPTokenizer.from_pretrained('/data1/shared_workspace/LLM_weights/openai/clip-vit-base-patch32')
     MAX_TEXT_LEN = 25 
     
     all_results = {}
-    total_success_rate = 0.0
     last_video = None
 
-    for path in hdf5_paths:
+    for path in my_paths:
         task_name = os.path.basename(path).replace(".hdf5", "")
         instruction = get_libero_instruction(path) 
         
@@ -46,19 +47,19 @@ def collect_rollout(config, model, device):
             truncation=True, return_tensors='pt'
         ).to(device)
 
-        # 修正：使用当前循环的具体 path
-        print(f"Collecting rollouts for task: {task_name} from {path}")
+        should_record = (rank == 0)
+        print(f"[Rank {rank}] Collecting rollouts for task: {task_name}")
         env = make_robomimic_env(
             dataset_name=config.dataset.name,
             dataset_path=path, 
             shape_meta=config.dataset.shape_meta,
             obs_horizon=model.obs_encoder.num_frames,
             max_episode_length=config.rollout_length,
-            record=True,
+            record=should_record,
         )
 
         successes = []
-        for e in trange(config.num_rollouts, desc=f"Testing {task_name}", disable=not is_main_process()):
+        for e in trange(config.num_rollouts, desc=f"[Rank {rank}] Testing {task_name}"):
             env.seed(e)
             obs = env.reset()
             done = False
@@ -75,35 +76,49 @@ def collect_rollout(config, model, device):
         
         task_sr = sum(successes) / len(successes)
         all_results[f"rollout/success_rate_{task_name}"] = task_sr
-        print(f"Task {task_name}: {task_sr:.4f}")
-        total_success_rate += task_sr
-        last_video = env.get_video()
-        env.close() # 建议加上，释放环境资源
+        print(f"[Rank {rank}] task sucess: {task_sr:.4f}")
+        if should_record:
+            last_video = env.get_video()
+        env.close()
 
-    avg_sr = total_success_rate / len(hdf5_paths)
-    all_results["rollout/avg_success_rate"] = avg_sr # 修正点 2：返回整个字典
     return all_results, last_video
 
-def maybe_collect_rollout(config, step, model, device):
-    if step > -1:
-        if is_main_process() and (
-            step % config.rollout_every == 0 or step == (config.num_steps - 1)
-        ):
-            # 修正点 3：接收整个字典
-            results_dict, video = collect_rollout(config, model, device)
-            avg_sr = results_dict["rollout/avg_success_rate"]
-            
-            print(f"Step: {step} | Avg Success Rate: {avg_sr:.4f}")
-            
-            video = video.transpose(0, 3, 1, 2)[None]
-            
-            # 将所有指标（总分+各子任务分）和视频一起记录
-            log_data = {**results_dict}
-            log_data["rollout/video"] = wandb.Video(video, fps=10)
-            wandb.log(log_data, step=step)
-            
-        dist.barrier()
+def maybe_collect_rollout(config, step, model, device, rank, world_size):
+    if getattr(config, "disable_rollout", False):
+        return
+    if step > 100 and (step % config.rollout_every == 0 or step == (config.num_steps - 1)):
+        hdf5_paths = glob_all(config.dataset.hdf5_path_globs)
+        num_tasks = len(hdf5_paths)
 
+        local_results, local_video = collect_rollout(config, model, device, rank, world_size)
+
+        sr_tensor = torch.zeros(num_tasks, device=device)
+        for i, path in enumerate(hdf5_paths):
+            task_name = os.path.basename(path).replace(".hdf5", "")
+            key = f"rollout/success_rate_{task_name}"
+            if key in local_results:
+                sr_tensor[i] = local_results[key]
+
+        dist.all_reduce(sr_tensor, op=dist.ReduceOp.SUM)
+
+        if is_main_process():
+            merged = {}
+            for i, path in enumerate(hdf5_paths):
+                task_name = os.path.basename(path).replace(".hdf5", "")
+                merged[f"rollout/success_rate_{task_name}"] = sr_tensor[i].item()
+
+            avg_sr = sr_tensor.mean().item()
+            merged["rollout/avg_success_rate"] = avg_sr
+
+            print(f"Step: {step} | Avg Success Rate: {avg_sr:.4f}")
+            if local_video is not None:
+                video = local_video.transpose(0, 3, 1, 2)[None]
+                merged["rollout/video"] = wandb.Video(video, fps=10)
+            merged["global_step"] = step
+            wandb.log(merged)
+
+        dist.barrier()
+    
 def train(rank, world_size, config):
     # Set global seed
     set_seed(config.seed * world_size + rank)
@@ -121,11 +136,14 @@ def train(rank, world_size, config):
     train_loader, val_loader = make_distributed_data_loader(
         train_set, val_set, config.batch_size, rank, world_size
     )
+    action_normalizer = getattr(train_set, "action_normalizer", None)
     if is_main_process():
         print(
             "Motion supervision key: optical_flow_raft_latent "
             "(fallback to motion_vector in train.py)."
         )
+        if action_normalizer is not None:
+            print(f"Action normalizer enabled: scale={action_normalizer.scale}, offset={action_normalizer.offset}")
 
     # Create model
     model = instantiate(config.model).to(device)
@@ -172,13 +190,13 @@ def train(rank, world_size, config):
                 wandb.log({f"train/{k}": v for k, v in info.items()}, step=step)
 
             # --- Evaluate if needed ---
-            maybe_evaluate(config, step, model, val_loader, device)
+            maybe_evaluate(config, step, model, val_loader, device, action_normalizer)
 
             # ---Collect environment rollouts if needed ---
-            maybe_collect_rollout(config, step, model, device)
+            maybe_collect_rollout(config, step, model, device, rank, world_size)
 
             # --- Save checkpoint if needed ---
-            maybe_save_checkpoint(config, step, model, optimizer, scheduler, scaler)
+            maybe_save_checkpoint(config, step, model, optimizer, scheduler, scaler, action_normalizer)
 
             step += 1
             pbar.update(1)

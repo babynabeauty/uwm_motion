@@ -56,7 +56,7 @@ def eval_one_epoch(config, data_loader, device, model, action_normalizer=None):
         obs, action, gt_motion = process_batch(
             batch, config.model.obs_encoder.num_frames, config.model.action_len, device
         )
-
+        # import ipdb; ipdb.set_trace()
         with torch.no_grad():
             # ------------ Validation loss ------------ #
             loss = model(obs, action,gt_motion)
@@ -67,10 +67,12 @@ def eval_one_epoch(config, data_loader, device, model, action_normalizer=None):
             # ------------ BC Inference ------------ #
             # Sample actions
             action_hat = model.sample(obs)
-
             # Unnormalize action and action_hat
             action_hat = unnormalize(action_hat)
             action = unnormalize(action)
+            
+            # print( "action_hat[0] **", action_hat[0])
+            # print( "action[0] **", action[0])
 
             # Compute MSE loss
             mse = F.mse_loss(action_hat, action)
@@ -134,11 +136,11 @@ def maybe_resume_checkpoint(
 
 def maybe_evaluate(config, step, model, loader, device, action_normalizer=None):
     """Evaluate if it's the correct step."""
-    if step > 0:
+    if step > 100:
         if step % config.eval_every == 0 or step == (config.num_steps - 1):
             stats = eval_one_epoch(config, loader, device, model, action_normalizer)
             if is_main_process():
-                wandb.log({f"eval/{k}": v for k, v in stats.items()}, step=step)
+                wandb.log({"global_step": step, **{f"eval/{k}": v for k, v in stats.items()}})
                 print(f"Step {step} action mse: {stats['action_mse']:.4f}")
 
 
@@ -166,9 +168,15 @@ def maybe_save_checkpoint(
             "lowdim_normalizer": lowdim_normalizer,
             "step": step,
         }
-        ckpt_path = os.path.join(config.logdir, ckpt_name)
-        torch.save(ckpt, ckpt_path)
-        print(f"Saved checkpoint at step {step} to {ckpt_path}")
+        # Save step-specific checkpoint (not overwritten)
+        stem, ext = os.path.splitext(ckpt_name)
+        step_ckpt_path = os.path.join(config.logdir, f"{stem}_step{step}{ext}")
+        torch.save(ckpt, step_ckpt_path)
+        print(f"Saved checkpoint at step {step} to {step_ckpt_path}")
+
+        # Also save as latest for easy resume
+        latest_path = os.path.join(config.logdir, ckpt_name)
+        torch.save(ckpt, latest_path)
 
 
 def train(rank, world_size, config):
@@ -239,7 +247,7 @@ def train(rank, world_size, config):
             if is_main_process():
                 # pbar.set_description(f"step: {step}, loss: {loss['loss']:.4f}")
                 pbar.set_description(f"step: {step}, loss: {loss['loss']:.4f},action_loss: {loss['action_loss']:.4f},motion_loss: {loss['motion_loss']:.4f}")
-                wandb.log({f"train/{k}": v for k, v in info.items()}, step=step)
+                wandb.log({"global_step": step, **{f"train/{k}": v for k, v in info.items()}})
 
             # --- Evaluate if needed ---
             maybe_evaluate(
@@ -273,6 +281,8 @@ def main(config):
     # Spawn processes
     world_size = torch.cuda.device_count()
     mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    # train(0, 1, config)
+
 
 
 if __name__ == "__main__":

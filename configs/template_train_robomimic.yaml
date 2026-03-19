@@ -17,8 +17,9 @@ save_every: 1000
 rollout_every: 1000
 num_rollouts: 50
 rollout_length: 1000
+disable_rollout: False
 
-batch_size: 1
+batch_size: 36
 num_frames: 19
 obs_num_frames: 2
 clip_grad_norm: 1

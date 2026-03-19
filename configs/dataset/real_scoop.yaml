@@ -1,0 +1,8 @@
+defaults:
+  - template_lerobot
+  - _self_
+
+name: real_scoop
+dataset_path: /data/shared_workspace/embodied_chemist/data/scoop20260204_right
+buffer_path: /data/shared_workspace/zhangshiqi/dataset/chemistry_data/scoop20260204_right.zarr
+compute_flow: True

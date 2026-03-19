@@ -1,0 +1,24 @@
+_target_: datasets.lerobot.make_lerobot_dataset
+name: real_robot
+dataset_path: /path/to/lerobot/dataset
+buffer_path: /path/to/buffer.zarr
+shape_meta:
+  obs:
+    head_rgb: &camera_meta
+      shape: [128, 128, 3]
+      type: rgb
+    right_wrist_rgb: *camera_meta
+  action:
+    shape: [7]
+image_key_map:
+  observation.images.head: head_rgb
+  observation.images.right_wrist: right_wrist_rgb
+seq_len: ${num_frames}
+val_ratio: 0.05
+subsample_ratio: 1.0
+
+compute_flow: False
+flow_camera_key: head_rgb
+flow_img_size: 224
+sdxl_vae_path: /data/shared_workspace/zhangshiqi/hf/models--stabilityai--sdxl-vae
+normalize_action: True

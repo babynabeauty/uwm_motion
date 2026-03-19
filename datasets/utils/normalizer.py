@@ -15,8 +15,10 @@ class LinearNormalizer:
             scale: The scale factor for normalization.
             offset: The offset for normalization.
         """
+        scale = np.array(scale, dtype=np.float32)
+        scale[scale == 0] = 1.0
         self.scale = scale
-        self.offset = offset
+        self.offset = np.array(offset, dtype=np.float32)
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """

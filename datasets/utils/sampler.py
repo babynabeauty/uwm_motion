@@ -12,6 +12,7 @@ class TrajectorySampler:
         buffer: CompressedTrajectoryBuffer,
         seq_len: int,
         episode_mask: np.ndarray = None,
+        exclude_keys: set[str] | None = None,
     ):
         """
         Initialize the trajectory sampler.
@@ -20,10 +21,11 @@ class TrajectorySampler:
             buffer: The trajectory buffer containing the data.
             seq_len: The length of the sequences to sample.
             episode_mask: A binary mask indicating valid episodes. If None, all episodes are valid.
+            exclude_keys: Keys to skip when reading from the buffer (e.g. large unused arrays).
         """
         self.buffer = buffer
         self.seq_len = seq_len
-        self.keys = list(self.buffer.keys())
+        self.keys = [k for k in self.buffer.keys() if k not in (exclude_keys or set())]
 
         # Compute all possible sample indices
         indices = []
@@ -34,6 +36,7 @@ class TrajectorySampler:
                     indices.append([j, j + seq_len])
             episode_start = episode_end
         self.indices = np.array(indices, dtype=np.int64)
+        # import ipdb;ipdb.set_trace()
         print(f"Total number of valid sequences: {len(self.indices)}")
 
         tokenizer = CLIPTokenizer.from_pretrained('/data/shared_workspace/LLM_weights/openai/clip-vit-base-patch32')
