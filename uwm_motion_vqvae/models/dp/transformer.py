@@ -1,0 +1,232 @@
+import torch
+import torch.nn as nn
+import numpy
+from models.common.adaln_attention import AdaLNAttentionBlock, AdaLNFinalLayer
+from models.common.utils import SinusoidalPosEmb, init_weights
+from .base_policy import NoisePredictionNet
+
+
+class MotionProjector(nn.Module):
+    def __init__(
+        self,
+        embed_dim,
+        hidden_dim=512,
+        #输入optical flow
+        latent_channels=4,
+        latent_height=28,
+        latent_width=28,
+    ):
+        super().__init__()
+        self.latent_channels = latent_channels
+        self.latent_height = latent_height
+        self.latent_width = latent_width
+        out_dim = latent_channels * latent_height * latent_width
+
+        self.fc = nn.Sequential(
+            nn.Linear(embed_dim, hidden_dim),
+            nn.Mish(),
+            nn.Linear(hidden_dim, out_dim),
+        )
+
+    def forward(self, motion_feats):
+        # motion_feats shape: (B, motion_len, embed_dim)
+        b, l, _ = motion_feats.shape
+        out = self.fc(motion_feats)
+        out = out.view(
+            b,
+            l,
+            self.latent_channels,
+            self.latent_height,
+            self.latent_width,
+        )
+        return out
+    
+
+class TransformerNoisePredictionNet(NoisePredictionNet):
+    def __init__(
+        self,
+        input_len: int,
+        input_dim: int,
+        global_cond_dim: int,
+        timestep_embed_dim: int = 256,
+        embed_dim: int = 768,
+        depth: int = 12,
+        num_heads: int = 12,
+        mlp_ratio: float = 4.0,
+        qkv_bias: bool = True,
+        use_motion_token: bool = False,
+        use_quantized_of: bool = False,
+        quantized_of_vocab_size: int = 256,
+        # quantized_of_num_spatial_tokens: int = 1,
+        num_flow_tokens: int = 64,
+        motion_mask: bool = False,
+        optical_flow_mask: bool = False,
+        motion_latent_channels: int = 4,
+        motion_latent_height: int = 28,
+        motion_latent_width: int = 28,
+        quantized_of_vqvae_ckpt_path: str = None,
+        quantized_of_vqvae_repo_path: str = "/data/workspace/zhangshiqi/LAPA/laq"
+    ):
+        super().__init__()
+        self.use_motion_token = use_motion_token
+        self.use_quantized_of = use_quantized_of
+        self.quantized_of_vocab_size = quantized_of_vocab_size
+        # self.quantized_of_num_spatial_tokens = quantized_of_num_spatial_tokens
+        self.input_len = input_len
+        #这里应该就是未来一帧的flow token数量
+        self.num_flow_tokens = num_flow_tokens
+        self.motion_mask = motion_mask
+        self.optical_flow_mask = optical_flow_mask
+        self.motion_latent_channels = motion_latent_channels
+        self.motion_latent_height = motion_latent_height
+        self.motion_latent_width = motion_latent_width
+        if self.use_motion_token and self.use_quantized_of:
+            raise ValueError("CAN NOT use_motion_token and use_quantized_of")
+        # Input encoder and decoder
+        hidden_dim = int(max(input_dim, embed_dim) * mlp_ratio)
+        self.input_encoder = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.Mish(), #Mish激活
+            nn.Linear(hidden_dim, embed_dim),
+        )
+        self.output_decoder = nn.Sequential(
+            nn.Linear(embed_dim, hidden_dim),
+            nn.Mish(),
+            nn.Linear(hidden_dim, input_dim),
+        )
+
+        # Timestep encoder
+        self.timestep_encoder = nn.Sequential(
+            SinusoidalPosEmb(timestep_embed_dim),
+            nn.Linear(timestep_embed_dim, timestep_embed_dim * 4),
+            nn.Mish(),
+            nn.Linear(timestep_embed_dim * 4, timestep_embed_dim),
+        )
+
+        # Model components
+        self.pos_embed = nn.Parameter(
+            torch.empty(1, input_len, embed_dim).normal_(std=0.02)
+        )
+
+        if self.use_motion_token:
+            #NOTE:加入motion-token
+            self.motion_tokens = nn.Parameter(torch.zeros(1, input_len, embed_dim))
+            nn.init.normal_(self.motion_tokens, std=0.02)
+            #NOTE：加入motion-token的映射层
+            #FIXME:这里的hidden_dim和上面input_encoder的hidden_dim是一样的
+            self.motion_projector = MotionProjector(
+                embed_dim=embed_dim,
+                hidden_dim=hidden_dim,
+                latent_channels=motion_latent_channels,
+                latent_height=motion_latent_height,
+                latent_width=motion_latent_width,
+            )
+
+        if self.use_quantized_of:
+            self.quantized_of_tokens = nn.Parameter(
+                torch.zeros(1, self.num_flow_tokens, embed_dim)
+            )
+            nn.init.normal_(self.quantized_of_tokens, std=0.02)
+            #映射层，将flow token映射到codebook size
+            self.quantized_of_head = nn.Linear(embed_dim, quantized_of_vocab_size)
+        
+        cond_dim = global_cond_dim + timestep_embed_dim #vision token和时间步
+        
+        self.blocks = nn.ModuleList(
+            [
+                AdaLNAttentionBlock(
+                    dim=embed_dim,
+                    cond_dim=cond_dim,#用时间和vision作为condition
+                    num_heads=num_heads,
+                    mlp_ratio=mlp_ratio,
+                    qkv_bias=qkv_bias,
+                )
+                for _ in range(depth)
+            ]
+        )
+        self.head = AdaLNFinalLayer(dim=embed_dim, cond_dim=cond_dim)
+
+        # AdaLN-specific weight initialization
+        self.initialize_weights()
+
+    def initialize_weights(self):
+        # Base initialization
+        self.apply(init_weights)
+
+        # Zero-out adaLN modulation layers in DiT blocks:
+        for block in self.blocks:
+            nn.init.constant_(block.adaLN_modulation[-1].weight, 0)
+            nn.init.constant_(block.adaLN_modulation[-1].bias, 0)
+
+        # Zero-out output layers:
+        nn.init.constant_(self.head.adaLN_modulation[-1].weight, 0)
+        nn.init.constant_(self.head.adaLN_modulation[-1].bias, 0)
+        nn.init.constant_(self.head.linear.weight, 0)
+        nn.init.constant_(self.head.linear.bias, 0)
+
+    def forward(self, sample, timestep, global_cond):
+        b = sample.shape[0]
+        l_a = sample.shape[1]
+
+        embed = self.input_encoder(sample)
+
+        # Encode timestep
+        if len(timestep.shape) == 0:
+            timestep = timestep.expand(sample.shape[0]).to(
+                dtype=torch.long, device=sample.device
+            )
+        temb = self.timestep_encoder(timestep)
+
+        # Concatenate timestep and condition along the sequence dimension
+        x = embed + self.pos_embed
+
+        attn_mask=None
+        if self.use_motion_token:
+            #NOTE：加入motiontoken的传播
+            m_tokens = self.motion_tokens.expand(b, -1, -1)
+            l_m = m_tokens.shape[1]
+            x = torch.cat([x, m_tokens], dim=1)
+            if self.motion_mask:
+                l_total = l_a + l_m
+                mask = torch.ones((l_total,l_total),device=sample.device,dtype=torch.bool)
+                mask[l_a:, :l_a] = False
+                attn_mask = mask.unsqueeze(0).repeat(b, 1, 1)
+        elif self.use_quantized_of:
+            q_tokens = self.quantized_of_tokens.expand(b, -1, -1)
+            l_q = q_tokens.shape[1]
+            x = torch.cat([x, q_tokens], dim=1)
+            if self.optical_flow_mask:
+                l_total = l_a + l_q
+                mask = torch.ones((l_total, l_total), device=sample.device, dtype=torch.bool)
+                mask[l_a:, :l_a] = False
+                attn_mask = mask.unsqueeze(0).repeat(b, 1, 1)
+        
+        cond = torch.cat([global_cond, temb], dim=-1)
+
+        #NOTE:取倒数第二层的mv出来做对齐
+        intermediate_output = None
+        for i, block in enumerate(self.blocks):
+            x = block(x, cond, attn_mask=attn_mask)
+            if (self.use_motion_token or self.use_quantized_of) and i == len(self.blocks) - 2:  # 倒数第二个 Block
+                intermediate_output = x
+        
+        pred_motion_latents = None
+        pred_quantized_of_logits = None
+        if self.use_motion_token:
+            print("use motion token")
+            motion_feats = intermediate_output[:, -self.input_len :, :]
+            pred_motion_latents = self.motion_projector(motion_feats)
+            # 这里的 x 需要截断，只保留 action 部分进入 head
+            action_out = x[:, : self.input_len, :]
+        elif self.use_quantized_of:
+            # import ipdb;ipdb.set_trace()
+            quantized_of_feats = intermediate_output[:, -self.num_flow_tokens :, :]
+            pred_quantized_of_logits = self.quantized_of_head(quantized_of_feats)
+            # print(numpy.unique(pred_quantized_of_logits.detach().cpu()))
+            action_out = x[:, : self.input_len, :]
+        else:
+            action_out = x
+
+        x = self.head(action_out, cond)
+        out = self.output_decoder(x)
+        return out, pred_motion_latents, pred_quantized_of_logits
