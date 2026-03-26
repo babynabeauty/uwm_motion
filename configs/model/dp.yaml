@@ -32,5 +32,12 @@ noise_pred_net:
   qkv_bias: True
   use_motion_token: False
   motion_mask: False
+  #vqvae配置
+  optical_flow_mask: False
+  use_quantized_of: False
+  quantized_of_vocab_size: 256
+  num_flow_tokens: 64
+  quantized_of_vqvae_ckpt_path: null
+  quantized_of_vqvae_repo_path: /data/workspace/zhangshiqi/LAPA/laq
 num_train_steps: 100
 num_inference_steps: 10

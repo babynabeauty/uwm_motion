@@ -21,6 +21,7 @@ from experiments.dp.train import (
     maybe_resume_checkpoint,
     maybe_evaluate,
     maybe_save_checkpoint,
+    build_frozen_flow_vqvae,
 )
 from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process,get_libero_instruction
 
@@ -32,7 +33,7 @@ def collect_rollout(config, model, device, rank, world_size):
     hdf5_paths = glob_all(config.dataset.hdf5_path_globs)
     my_paths = hdf5_paths[rank::world_size]
 
-    tokenizer = CLIPTokenizer.from_pretrained('/data1/shared_workspace/LLM_weights/openai/clip-vit-base-patch32')
+    tokenizer = CLIPTokenizer.from_pretrained('/data/shared_workspace/LLM_weights/openai/clip-vit-base-patch32')
     MAX_TEXT_LEN = 25 
     
     all_results = {}
@@ -132,6 +133,7 @@ def train(rank, world_size, config):
         init_wandb(config, job_type="train")
 
     # Create dataset
+    # import ipdb;ipdb.set_trace()
     train_set, val_set = instantiate(config.dataset)
     train_loader, val_loader = make_distributed_data_loader(
         train_set, val_set, config.batch_size, rank, world_size
@@ -146,6 +148,9 @@ def train(rank, world_size, config):
             print(f"Action normalizer enabled: scale={action_normalizer.scale}, offset={action_normalizer.offset}")
 
     # Create model
+
+    flow_vqvae, num_spatial_tokens = build_frozen_flow_vqvae(config, device)
+
     model = instantiate(config.model).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), **config.optimizer)
     scheduler = get_scheduler(optimizer=optimizer, **config.scheduler)
@@ -181,7 +186,7 @@ def train(rank, world_size, config):
         for batch in train_loader:
             # --- Training step ---
             loss, info = train_one_step(
-                config, model, optimizer, scheduler, scaler, batch, device
+                config, model, optimizer, scheduler, scaler, batch, device,flow_vqvae
             )
 
             # --- Logging ---
@@ -190,7 +195,7 @@ def train(rank, world_size, config):
                 wandb.log({f"train/{k}": v for k, v in info.items()}, step=step)
 
             # --- Evaluate if needed ---
-            maybe_evaluate(config, step, model, val_loader, device, action_normalizer)
+            maybe_evaluate(config, step, model, val_loader, device, action_normalizer,flow_vqvae)
 
             # ---Collect environment rollouts if needed ---
             maybe_collect_rollout(config, step, model, device, rank, world_size)
@@ -222,8 +227,8 @@ def main(config):
         os.environ["MASTER_ADDR"] = "localhost"
         
     world_size = torch.cuda.device_count()
-    # mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
-    train(0, 1, config)
+    mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    # train(0, 1, config)
 
 
 if __name__ == "__main__":

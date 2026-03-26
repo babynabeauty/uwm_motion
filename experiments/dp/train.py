@@ -16,20 +16,153 @@ from tqdm import tqdm
 from datasets.utils.loader import make_distributed_data_loader
 from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process
 
+def build_frozen_flow_vqvae(config, device):
+    noise_cfg = config.model.noise_pred_net
+    if not bool(getattr(noise_cfg, "use_quantized_of", False)):
+        return None,None
 
-def process_batch(batch, obs_horizon, action_horizon, device):
+    ckpt_path = getattr(noise_cfg, "quantized_of_vqvae_ckpt_path", None)
+    if not ckpt_path:
+        raise ValueError(
+            "model.noise_pred_net.use_quantized_of=True but quantized_of_vqvae_ckpt_path is not set."
+        )
+    if not os.path.exists(ckpt_path):
+        raise FileNotFoundError(f"VQ-VAE checkpoint not found: {ckpt_path}")
+
+    repo_path = getattr(noise_cfg, "quantized_of_vqvae_repo_path", None)
+    if not repo_path:
+        raise ValueError(
+            "quantized_of_vqvae_repo_path is not set; cannot import FlowVQVAE."
+        )
+    if repo_path not in sys.path:
+        sys.path.insert(0, repo_path)
+
+    # Ensure we import FlowVQVAE from the specified repo_path, not a cached module.
+    import importlib
+
+    for k in list(sys.modules.keys()):
+        if k == "flow_vq" or k.startswith("flow_vq."):
+            del sys.modules[k]
+
+    FlowVQVAE = importlib.import_module("flow_vq.vqvae_flow").FlowVQVAE
+
+    ckpt = torch.load(ckpt_path, map_location="cpu")
+    state_dict = ckpt["model"] if isinstance(ckpt, dict) and "model" in ckpt else ckpt
+    ckpt_args = ckpt["args"] if isinstance(ckpt, dict) and "args" in ckpt else {}
+
+    def _infer_int_arg(name: str, default: int) -> int:
+        v = ckpt_args.get(name, None)
+        if v is None:
+            return int(default)
+        try:
+            return int(v)
+        except Exception:
+            return int(default)
+
+    # Infer hyperparams from checkpoint if not provided in ckpt_args.
+    # Works for both dict ckpt and pure state_dict ckpt.
+    if "vq.embeddings.weight" in state_dict:
+        inferred_codebook_size = int(state_dict["vq.embeddings.weight"].shape[0])
+        inferred_embedding_dim = int(state_dict["vq.embeddings.weight"].shape[1])
+    else:
+        inferred_codebook_size = int(noise_cfg.quantized_of_vocab_size)
+        inferred_embedding_dim = 64
+
+    # hidden_dim from first conv out channels if possible.
+    inferred_hidden_dim = 128
+    for key in ("encoder.0.0.weight", "encoder.0.weight"):
+        if key in state_dict:
+            inferred_hidden_dim = int(state_dict[key].shape[0])
+            break
+
+    # downsample_factor for laq_flow version: encoder has blocks [0..d-1] then final conv at index d.
+    inferred_downsample_factor = 4
+    enc_idx = []
+    for k in state_dict.keys():
+        if k.startswith("encoder."):
+            parts = k.split(".")
+            if len(parts) >= 2 and parts[1].isdigit():
+                enc_idx.append(int(parts[1]))
+    if enc_idx:
+        inferred_downsample_factor = max(enc_idx)  # last conv index == downsample_factor
+
+    hidden_dim = _infer_int_arg("hidden_dim", inferred_hidden_dim)
+    embedding_dim = _infer_int_arg("embedding_dim", inferred_embedding_dim)
+    codebook_size = _infer_int_arg("codebook_size", inferred_codebook_size)
+    downsample_factor = _infer_int_arg("downsample_factor", inferred_downsample_factor)
+    
+    if int(noise_cfg.quantized_of_vocab_size) != codebook_size:
+        if is_main_process():
+            print(
+                f"Override quantized_of_vocab_size from {noise_cfg.quantized_of_vocab_size} to "
+                f"{codebook_size} (read from VQ-VAE checkpoint)."
+            )
+        config.model.noise_pred_net.quantized_of_vocab_size = codebook_size
+
+    vqvae = FlowVQVAE(
+        in_channels=2,
+        hidden_dim=hidden_dim,
+        embedding_dim=embedding_dim,
+        codebook_size=codebook_size,
+        downsample_factor=downsample_factor,
+    ).to(device)
+    vqvae.load_state_dict(state_dict, strict=True)
+    vqvae.eval()
+    for p in vqvae.parameters():
+        p.requires_grad = False
+
+    with torch.no_grad():
+        dummy = torch.zeros(1, 2, 128, 128, device=device)
+        if hasattr(vqvae, "get_codebook_indices"):
+            dummy_indices = vqvae.get_codebook_indices(dummy)  # [1, h', w']
+        else:
+            dummy_indices = vqvae.encode(dummy)  # [1, h', w']
+        num_spatial_tokens = dummy_indices.shape[1] * dummy_indices.shape[2]
+    if is_main_process():
+        print(f"FlowVQVAE spatial resolution: {dummy_indices.shape[1]}x{dummy_indices.shape[2]}, "
+              f"num_spatial_tokens (M) = {num_spatial_tokens}")
+    # config.model.noise_pred_net.quantized_of_num_spatial_tokens = num_spatial_tokens
+
+    return vqvae, num_spatial_tokens
+
+
+@torch.no_grad()
+def extract_vq_indices_from_flow(
+    flow_btchw: torch.Tensor,
+    flow_vqvae,
+) -> torch.Tensor:
+    """
+    Convert optical flow [B, T, 2, H, W] to spatial token ids [B, T, M]
+    using FlowVQVAE.get_codebook_indices, where M = h' * w'.
+    """
+    b, t, c, h, w = flow_btchw.shape
+    flat_flow = flow_btchw.reshape(b * t, c, h, w).contiguous()
+    if hasattr(flow_vqvae, "get_codebook_indices"):
+        indices = flow_vqvae.get_codebook_indices(flat_flow)  # [B*T, h', w']
+    else:
+        indices = flow_vqvae.encode(flat_flow)  # [B*T, h', w']
+    m = indices.shape[1] * indices.shape[2]
+    return indices.reshape(b, t, m).long()
+
+
+def process_batch(batch, obs_horizon, action_horizon, use_quantized_of, device,flow_vqvae: Optional[torch.nn.Module] = None):
     # Take the first `obs_horizon` observations
     obs = {k: v[:, :obs_horizon].to(device) for k, v in batch["obs"].items()}
 
     # Take the last `action_horizon` actions
     action = batch["action"][:, -action_horizon:].to(device)
+    
     gt_motion = None
-    if "optical_flow_raft_latent" in batch:
+    if use_quantized_of:
+        if action_horizon == 8:
+            flow = batch["optical_flow_8"][:,0:1].to(device)
+        elif action_horizon == 16:
+            flow = batch["optical_flow_16"][:,0:1].to(device)
+        else:
+            raise ValueError(f"Unsupported action length: {action_horizon}")
+        gt_motion = extract_vq_indices_from_flow(flow, flow_vqvae)
+    elif "optical_flow_raft_latent" in batch:
         gt_motion = batch["optical_flow_raft_latent"][:, -action_horizon:].to(device)
-    # elif "motion_vector" in batch:
-    #     gt_motion = batch["motion_vector"][:, -action_horizon:].to(device)
-    # else:
-    #     gt_motion = None
 
     # Add language tokens to observations
     if "input_ids" in batch and "attention_mask" in batch:
@@ -38,7 +171,7 @@ def process_batch(batch, obs_horizon, action_horizon, device):
     return obs, action, gt_motion
 
 
-def eval_one_epoch(config, data_loader, device, model, action_normalizer=None):
+def eval_one_epoch(config, data_loader, device, model, action_normalizer=None,flow_vqvae: Optional[torch.nn.Module] = None):
     model.eval()
     model = getattr(model, "module", model)  # unwrap DDP
 
@@ -54,7 +187,7 @@ def eval_one_epoch(config, data_loader, device, model, action_normalizer=None):
     for batch in tqdm(data_loader, desc="Evaluating", disable=not is_main_process()):
         # ------------ Preprocess data ------------ #
         obs, action, gt_motion = process_batch(
-            batch, config.model.obs_encoder.num_frames, config.model.action_len, device
+            batch, config.model.obs_encoder.num_frames, config.model.action_len, config.model.noise_pred_net.use_quantized_of, device,flow_vqvae
         )
         # import ipdb; ipdb.set_trace()
         with torch.no_grad():
@@ -86,12 +219,12 @@ def eval_one_epoch(config, data_loader, device, model, action_normalizer=None):
     return stats
 
 
-def train_one_step(config, model, optimizer, scheduler, scaler, batch, device):
+def train_one_step(config, model, optimizer, scheduler, scaler, batch, device,flow_vqvae: Optional[torch.nn.Module] = None):
     model.train()
 
     # --- Preprocess data ---
     obs, action, gt_motion = process_batch(
-        batch, config.model.obs_encoder.num_frames, config.model.action_len, device
+        batch, config.model.obs_encoder.num_frames, config.model.action_len, config.model.noise_pred_net.use_quantized_of, device,flow_vqvae
     )
 
     # --- DP Training ---
@@ -134,11 +267,11 @@ def maybe_resume_checkpoint(
     return step
 
 
-def maybe_evaluate(config, step, model, loader, device, action_normalizer=None):
+def maybe_evaluate(config, step, model, loader, device, action_normalizer=None,flow_vqvae: Optional[torch.nn.Module] = None):
     """Evaluate if it's the correct step."""
     if step > 100:
         if step % config.eval_every == 0 or step == (config.num_steps - 1):
-            stats = eval_one_epoch(config, loader, device, model, action_normalizer)
+            stats = eval_one_epoch(config, loader, device, model, action_normalizer,flow_vqvae)
             if is_main_process():
                 wandb.log({"global_step": step, **{f"eval/{k}": v for k, v in stats.items()}})
                 print(f"Step {step} action mse: {stats['action_mse']:.4f}")
@@ -198,6 +331,13 @@ def train(rank, world_size, config):
     )
 
     # Create model
+    flow_vqvae_result = build_frozen_flow_vqvae(config, device)
+    if flow_vqvae_result is not None:
+        #FIXME:这里需要保存num_spatial_tokens，是不是可以不指定这个值了
+        flow_vqvae, num_spatial_tokens = flow_vqvae_result
+    else:
+        flow_vqvae = None
+
     model = instantiate(config.model).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), **config.optimizer)
     scheduler = get_scheduler(optimizer=optimizer, **config.scheduler)
@@ -240,7 +380,7 @@ def train(rank, world_size, config):
         for batch in train_loader:
             # --- Training step ---
             loss, info = train_one_step(
-                config, model, optimizer, scheduler, scaler, batch, device
+                config, model, optimizer, scheduler, scaler, batch, device,flow_vqvae
             )
 
             # --- Logging ---

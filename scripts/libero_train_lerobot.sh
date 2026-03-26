@@ -12,7 +12,7 @@ export WANDB_API_KEY=wandb_v1_56E5qDbEjWBQV5UNN0Ddf4lDhLl_HmyAV7vx9AboFyn0U0Zbit
 export WANDB_MODE=online
 
 # ---- Real robot dataset (LeRobot 3.0) with optical flow ----
-CUDA_VISIBLE_DEVICES=5,6 python experiments/dp/train_robomimic.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
     exp_id="real_scoop_MV_no_MASK_no_mixture" \
     model.noise_pred_net.use_motion_token=True \

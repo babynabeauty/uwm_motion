@@ -60,6 +60,14 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
         motion_latent_channels: int = 4,
         motion_latent_height: int = 28,
         motion_latent_width: int = 28,
+
+        use_quantized_of: bool = False,
+        optical_flow_mask: bool = False,
+        quantized_of_vocab_size: int = 256,
+        num_flow_tokens: int = 64,
+        quantized_of_vqvae_ckpt_path: str = None,
+        quantized_of_vqvae_repo_path: str = "/data/workspace/zhangshiqi/LAPA/laq"
+
     ):
         super().__init__()
         print("*"*30)
@@ -71,6 +79,14 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
         self.motion_latent_channels = motion_latent_channels
         self.motion_latent_height = motion_latent_height
         self.motion_latent_width = motion_latent_width
+        
+        self.use_quantized_of = use_quantized_of
+        self.optical_flow_mask = optical_flow_mask
+        self.quantized_of_vocab_size = quantized_of_vocab_size
+        self.num_flow_tokens = num_flow_tokens
+        self.quantized_of_vqvae_ckpt_path = quantized_of_vqvae_ckpt_path
+        self.quantized_of_vqvae_repo_path = quantized_of_vqvae_repo_path
+
         # Input encoder and decoder
         hidden_dim = int(max(input_dim, embed_dim) * mlp_ratio)
         self.input_encoder = nn.Sequential(
@@ -110,6 +126,13 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
                 latent_height=motion_latent_height,
                 latent_width=motion_latent_width,
             )
+        if self.use_quantized_of:
+            self.quantized_of_tokens = nn.Parameter(
+                torch.zeros(1, self.num_flow_tokens, embed_dim)
+            )
+            nn.init.normal_(self.quantized_of_tokens, std=0.02)
+            #映射层，将flow token映射到codebook size
+            self.quantized_of_head = nn.Linear(embed_dim, quantized_of_vocab_size)
         
         cond_dim = global_cond_dim + timestep_embed_dim #vision token和时间步
         
@@ -176,6 +199,15 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
             if self.motion_mask:
                 mask[l_a:, :l_a] = False
                 attn_mask = mask.unsqueeze(0).repeat(b, 1, 1)
+        elif self.use_quantized_of:
+            q_tokens = self.quantized_of_tokens.expand(b, -1, -1)
+            l_q = q_tokens.shape[1]
+            x = torch.cat([x, q_tokens], dim=1)
+            if self.optical_flow_mask:
+                l_total = l_a + l_q
+                mask = torch.ones((l_total, l_total), device=sample.device, dtype=torch.bool)
+                mask[l_a:, :l_a] = False
+                attn_mask = mask.unsqueeze(0).repeat(b, 1, 1)
         
         cond = torch.cat([global_cond, temb], dim=-1)
 
@@ -187,10 +219,18 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
                 intermediate_output = x
         
         pred_motion_latents = None
+        pred_quantized_of_logits = None
+
         if self.use_motion_token:
             motion_feats = intermediate_output[:, -self.input_len :, :]
             pred_motion_latents = self.motion_projector(motion_feats)
             # 这里的 x 需要截断，只保留 action 部分进入 head
+            action_out = x[:, : self.input_len, :]
+        elif self.use_quantized_of:
+            # import ipdb;ipdb.set_trace()
+            quantized_of_feats = intermediate_output[:, -self.num_flow_tokens :, :]
+            pred_quantized_of_logits = self.quantized_of_head(quantized_of_feats)
+            # print(numpy.unique(pred_quantized_of_logits.detach().cpu()))
             action_out = x[:, : self.input_len, :]
         else:
             action_out = x
