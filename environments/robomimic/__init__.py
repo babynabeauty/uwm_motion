@@ -13,6 +13,7 @@ def make_robomimic_env(
     obs_horizon,
     max_episode_length,
     record=False,
+    render_gpu_id=None,
 ):
     if "robomimic" in dataset_name:
         from robomimic.utils.env_utils import get_env_type, get_env_class
@@ -41,8 +42,9 @@ def make_robomimic_env(
             all_obs_keys=all_obs_keys,
             verbose=True,
         )
-        # Set render device if CUDA_VISIBLE_DEVICES is set
-        if os.environ.get("CUDA_VISIBLE_DEVICES", None):
+        if render_gpu_id is not None:
+            env_meta["env_kwargs"]["render_gpu_device_id"] = render_gpu_id
+        elif os.environ.get("CUDA_VISIBLE_DEVICES", None):
             env_meta["env_kwargs"]["render_gpu_device_id"] = int(
                 os.environ["CUDA_VISIBLE_DEVICES"].split(",")[0]
             )
@@ -74,8 +76,9 @@ def make_robomimic_env(
             "camera_widths": 128,
         }
 
-        # Set render device if CUDA_VISIBLE_DEVICES is set
-        if os.environ.get("CUDA_VISIBLE_DEVICES", None):
+        if render_gpu_id is not None:
+            env_kwargs["render_gpu_device_id"] = render_gpu_id
+        elif os.environ.get("CUDA_VISIBLE_DEVICES", None):
             env_kwargs["render_gpu_device_id"] = int(
                 os.environ["CUDA_VISIBLE_DEVICES"].split(",")[0]
             )

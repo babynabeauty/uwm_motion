@@ -77,7 +77,7 @@ def init_distributed(rank, world_size):
         backend="nccl",
         rank=rank,
         world_size=world_size,
-        timeout=timedelta(seconds=3600),
+        timeout=timedelta(seconds=36000),
     )
 
 

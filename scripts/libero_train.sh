@@ -21,19 +21,18 @@ TORCH_CUDNN_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-p
 TORCH_CUBLAS_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-packages/nvidia/cublas/lib
 export LD_LIBRARY_PATH="${TORCH_CUDNN_LIB}:${TORCH_CUBLAS_LIB}:${LD_LIBRARY_PATH_CLEAN}"
 
-#setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size64_best.log 2>&1 &
+action_len=8
+codebook_size=8
+#setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size8_best.log 2>&1 &
 PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq/output"
 # EXP_ID="libero_10_stride8_baseline"
-action_len=8
-codebook_size=64
-# EXP_ID="libero_10_stride${action_len}_size${codebook_size}_best"
-EXP_ID="debug"
-
+EXP_ID="libero_10_stride${action_len}_size${codebook_size}_best"
 VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_best.pt"
 # VQVAE_CKPT="None"
 USE_VQVAE=True
 BS=72
-CUDA_VISIBLE_DEVICES=7 python experiments/dp/train_robomimic.py \
+ROLLOUT=10
+CUDA_VISIBLE_DEVICES=5,6 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
     exp_id=$EXP_ID \
     model.noise_pred_net.use_motion_token=False \
@@ -49,8 +48,8 @@ CUDA_VISIBLE_DEVICES=7 python experiments/dp/train_robomimic.py \
     eval_every=5000 \
     save_every=5000 \
     rollout_every=5000 \
-    num_rollouts=20 \
-    num_steps=100000 \
+    num_rollouts=$ROLLOUT \
+    num_steps=300000 \
     batch_size=$BS \
     optimizer.lr=2e-4 \
     dataset=libero_10 \
