@@ -26,12 +26,14 @@ PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq/output"
 # EXP_ID="libero_10_stride8_baseline"
 action_len=8
 codebook_size=64
-EXP_ID="libero_10_stride${action_len}_size${codebook_size}_best"
+# EXP_ID="libero_10_stride${action_len}_size${codebook_size}_best"
+EXP_ID="debug"
+
 VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_best.pt"
 # VQVAE_CKPT="None"
 USE_VQVAE=True
 BS=72
-CUDA_VISIBLE_DEVICES=5,6 python experiments/dp/train_robomimic.py \
+CUDA_VISIBLE_DEVICES=7 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
     exp_id=$EXP_ID \
     model.noise_pred_net.use_motion_token=False \

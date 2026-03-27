@@ -84,7 +84,7 @@ def collect_rollout(config, model, device):
 def maybe_collect_rollout(config, step, model, device, rank, world_size):
     if getattr(config, "disable_rollout", False):
         return
-    if step > 100 and (step % config.rollout_every == 0 or step == (config.num_steps - 1)):
+    if step > -1 and (step % config.rollout_every == 0 or step == (config.num_steps - 1)):
         if is_main_process():
             local_results, local_video = collect_rollout(config, model, device)
 

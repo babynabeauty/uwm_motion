@@ -270,7 +270,7 @@ def maybe_resume_checkpoint(
 
 def maybe_evaluate(config, step, model, loader, device, action_normalizer=None,flow_vqvae: Optional[torch.nn.Module] = None):
     """Evaluate if it's the correct step."""
-    if step > 100:
+    if step > -1:
         if step % config.eval_every == 0 or step == (config.num_steps - 1):
             stats = eval_one_epoch(config, loader, device, model, action_normalizer,flow_vqvae)
             if is_main_process():

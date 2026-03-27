@@ -60,7 +60,7 @@ class DiffusionPolicy(nn.Module):
         # Reverse diffusion process
         for t in self.noise_scheduler.timesteps:
             # Predict noise
-            noise_pred,_ = self.noise_pred_net(action, t, global_cond=obs)
+            noise_pred, _, _ = self.noise_pred_net(action, t, global_cond=obs)
 
             # Diffusion step
             action = self.noise_scheduler.step(noise_pred, t, action).prev_sample
