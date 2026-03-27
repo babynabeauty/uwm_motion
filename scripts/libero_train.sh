@@ -21,32 +21,17 @@ TORCH_CUDNN_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-p
 TORCH_CUBLAS_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-packages/nvidia/cublas/lib
 export LD_LIBRARY_PATH="${TORCH_CUDNN_LIB}:${TORCH_CUBLAS_LIB}:${LD_LIBRARY_PATH_CLEAN}"
 
-# Preflight check: fail fast if runtime cuDNN is not the expected version.
-python - <<'PY'
-import sys
-import torch
-
-expected = 8902  # cuDNN 8.9.2
-runtime = torch.backends.cudnn.version()
-print(f"[preflight] torch={torch.__version__}, cuda={torch.version.cuda}, cudnn={runtime}")
-if runtime != expected:
-    print(
-        f"[preflight] ERROR: expected cuDNN {expected}, but got {runtime}. "
-        "Please check LD_LIBRARY_PATH for incompatible cuDNN libraries.",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-PY
-
+#setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size64_best.log 2>&1 &
 PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq/output"
-# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size256.log 2>&1 &
 # EXP_ID="libero_10_stride8_baseline"
-EXP_ID="libero_10_stride8_size256"
-VQVAE_CKPT="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq/output/flow_vq_results_stride8_size256/flow_vqvae_best.pt"
+action_len=8
+codebook_size=64
+EXP_ID="libero_10_stride${action_len}_size${codebook_size}_best"
+VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_best.pt"
 # VQVAE_CKPT="None"
 USE_VQVAE=True
-
-CUDA_VISIBLE_DEVICES=7 python experiments/dp/train_robomimic.py \
+BS=72
+CUDA_VISIBLE_DEVICES=5,6 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
     exp_id=$EXP_ID \
     model.noise_pred_net.use_motion_token=False \
@@ -64,7 +49,7 @@ CUDA_VISIBLE_DEVICES=7 python experiments/dp/train_robomimic.py \
     rollout_every=5000 \
     num_rollouts=20 \
     num_steps=100000 \
-    batch_size=1 \
+    batch_size=$BS \
     optimizer.lr=2e-4 \
     dataset=libero_10 \
     model.obs_encoder.use_language=False \
