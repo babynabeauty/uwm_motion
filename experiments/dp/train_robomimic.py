@@ -26,12 +26,11 @@ from experiments.dp.train import (
 from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process,get_libero_instruction
 
 
-def collect_rollout(config, model, device, rank, world_size):
+def collect_rollout(config, model, device):
     model.eval()
     model = getattr(model, "module", model)
     
     hdf5_paths = glob_all(config.dataset.hdf5_path_globs)
-    my_paths = hdf5_paths[rank::world_size]
 
     tokenizer = CLIPTokenizer.from_pretrained('/data/shared_workspace/LLM_weights/openai/clip-vit-base-patch32')
     MAX_TEXT_LEN = 25 
@@ -39,7 +38,7 @@ def collect_rollout(config, model, device, rank, world_size):
     all_results = {}
     last_video = None
 
-    for path in my_paths:
+    for path in hdf5_paths:
         task_name = os.path.basename(path).replace(".hdf5", "")
         instruction = get_libero_instruction(path) 
         
@@ -48,19 +47,18 @@ def collect_rollout(config, model, device, rank, world_size):
             truncation=True, return_tensors='pt'
         ).to(device)
 
-        should_record = (rank == 0)
-        print(f"[Rank {rank}] Collecting rollouts for task: {task_name}")
+        print(f"Collecting rollouts for task: {task_name}")
         env = make_robomimic_env(
             dataset_name=config.dataset.name,
             dataset_path=path, 
             shape_meta=config.dataset.shape_meta,
             obs_horizon=model.obs_encoder.num_frames,
             max_episode_length=config.rollout_length,
-            record=should_record,
+            record=True,
         )
 
         successes = []
-        for e in trange(config.num_rollouts, desc=f"[Rank {rank}] Testing {task_name}"):
+        for e in trange(config.num_rollouts, desc=f"Testing {task_name}"):
             env.seed(e)
             obs = env.reset()
             done = False
@@ -77,9 +75,8 @@ def collect_rollout(config, model, device, rank, world_size):
         
         task_sr = sum(successes) / len(successes)
         all_results[f"rollout/success_rate_{task_name}"] = task_sr
-        print(f"[Rank {rank}] task sucess: {task_sr:.4f}")
-        if should_record:
-            last_video = env.get_video()
+        print(f"Task success: {task_sr:.4f}")
+        last_video = env.get_video()
         env.close()
 
     return all_results, last_video
@@ -88,35 +85,18 @@ def maybe_collect_rollout(config, step, model, device, rank, world_size):
     if getattr(config, "disable_rollout", False):
         return
     if step > 100 and (step % config.rollout_every == 0 or step == (config.num_steps - 1)):
-        hdf5_paths = glob_all(config.dataset.hdf5_path_globs)
-        num_tasks = len(hdf5_paths)
-
-        local_results, local_video = collect_rollout(config, model, device, rank, world_size)
-
-        sr_tensor = torch.zeros(num_tasks, device=device)
-        for i, path in enumerate(hdf5_paths):
-            task_name = os.path.basename(path).replace(".hdf5", "")
-            key = f"rollout/success_rate_{task_name}"
-            if key in local_results:
-                sr_tensor[i] = local_results[key]
-
-        dist.all_reduce(sr_tensor, op=dist.ReduceOp.SUM)
-
         if is_main_process():
-            merged = {}
-            for i, path in enumerate(hdf5_paths):
-                task_name = os.path.basename(path).replace(".hdf5", "")
-                merged[f"rollout/success_rate_{task_name}"] = sr_tensor[i].item()
+            local_results, local_video = collect_rollout(config, model, device)
 
-            avg_sr = sr_tensor.mean().item()
-            merged["rollout/avg_success_rate"] = avg_sr
+            avg_sr = sum(local_results.values()) / len(local_results)
+            local_results["rollout/avg_success_rate"] = avg_sr
 
             print(f"Step: {step} | Avg Success Rate: {avg_sr:.4f}")
             if local_video is not None:
                 video = local_video.transpose(0, 3, 1, 2)[None]
-                merged["rollout/video"] = wandb.Video(video, fps=10)
-            merged["global_step"] = step
-            wandb.log(merged)
+                local_results["rollout/video"] = wandb.Video(video, fps=10)
+            local_results["global_step"] = step
+            wandb.log(local_results)
 
         dist.barrier()
     

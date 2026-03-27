@@ -1,4 +1,3 @@
-# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_baseline.log 2>&1 &
 
 #_MV_no_MASK_no_mixture
 #_MV_Mask_no_mixture
@@ -6,19 +5,57 @@
 #_MV_Mask_3_mixture
 #_baseline
 #libero_10_vqvae_stride8_voc256
-export PYTHONPATH=/data/workspace/zhangshiqi/uwm_motion_vqvae:$PYTHONPATH
+export PYTHONPATH=/data/workspace/zhangshiqi/uwm_motion:$PYTHONPATH
 export WANDB_API_KEY=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
 export WANDB_MODE=online
-CUDA_VISIBLE_DEVICES=2,3 python experiments/dp/train_robomimic.py \
+export WANDB_DIR=/data/workspace/zhangshiqi/uwm_motion/wandb
+export UWM_RUN_DIR_BASE=/data/shared_workspace/zhangshiqi/uwm_motion_runs
+export TMPDIR=/tmp
+export TMP=/tmp
+export TEMP=/tmp
+mkdir -p "$WANDB_DIR" "$UWM_RUN_DIR_BASE" "$TMPDIR"
+
+# Remove incompatible legacy cuDNN path and prioritize PyTorch bundled CUDA libs.
+LD_LIBRARY_PATH_CLEAN="$(echo "${LD_LIBRARY_PATH:-}" | tr ':' '\n' | rg -v 'cudnn-8\.2\.1-cuda11\.3_0/lib' | paste -sd ':' -)"
+TORCH_CUDNN_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-packages/nvidia/cudnn/lib
+TORCH_CUBLAS_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-packages/nvidia/cublas/lib
+export LD_LIBRARY_PATH="${TORCH_CUDNN_LIB}:${TORCH_CUBLAS_LIB}:${LD_LIBRARY_PATH_CLEAN}"
+
+# Preflight check: fail fast if runtime cuDNN is not the expected version.
+python - <<'PY'
+import sys
+import torch
+
+expected = 8902  # cuDNN 8.9.2
+runtime = torch.backends.cudnn.version()
+print(f"[preflight] torch={torch.__version__}, cuda={torch.version.cuda}, cudnn={runtime}")
+if runtime != expected:
+    print(
+        f"[preflight] ERROR: expected cuDNN {expected}, but got {runtime}. "
+        "Please check LD_LIBRARY_PATH for incompatible cuDNN libraries.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+PY
+
+PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq/output"
+# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size256.log 2>&1 &
+# EXP_ID="libero_10_stride8_baseline"
+EXP_ID="libero_10_stride8_size256"
+VQVAE_CKPT="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq/output/flow_vq_results_stride8_size256/flow_vqvae_best.pt"
+# VQVAE_CKPT="None"
+USE_VQVAE=True
+
+CUDA_VISIBLE_DEVICES=7 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
-    exp_id="debug" \
+    exp_id=$EXP_ID \
     model.noise_pred_net.use_motion_token=False \
     model.noise_pred_net.motion_mask=False \
     model.mixture=0 \
-    model.noise_pred_net.use_quantized_of=True \
+    model.noise_pred_net.use_quantized_of=$USE_VQVAE \
     model.noise_pred_net.optical_flow_mask=False \
-    model.noise_pred_net.quantized_of_vqvae_ckpt_path=/data/workspace/zhangshiqi/laq_flow/laq/flow_vq_results/flow_vqvae_best.pt \
-    model.noise_pred_net.quantized_of_vqvae_repo_path=/data/workspace/zhangshiqi/laq_flow/laq \
+    model.noise_pred_net.quantized_of_vqvae_ckpt_path=$VQVAE_CKPT \
+    model.noise_pred_net.quantized_of_vqvae_repo_path=/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq \
     model.noise_pred_net.num_flow_tokens=16 \
     num_frames=9 \
     model.action_len=8 \
@@ -27,7 +64,7 @@ CUDA_VISIBLE_DEVICES=2,3 python experiments/dp/train_robomimic.py \
     rollout_every=5000 \
     num_rollouts=20 \
     num_steps=100000 \
-    batch_size=72 \
+    batch_size=1 \
     optimizer.lr=2e-4 \
     dataset=libero_10 \
     model.obs_encoder.use_language=False \

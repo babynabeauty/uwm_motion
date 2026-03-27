@@ -7,12 +7,13 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn.functional as F
 import wandb
+from typing import Optional
 from diffusers.optimization import get_scheduler
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
 from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm
-
+import sys
 from datasets.utils.loader import make_distributed_data_loader
 from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process
 

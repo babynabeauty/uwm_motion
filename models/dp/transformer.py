@@ -215,7 +215,7 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
         intermediate_output = None
         for i, block in enumerate(self.blocks):
             x = block(x, cond, attn_mask=attn_mask)
-            if self.use_motion_token and i == len(self.blocks) - 2:  # 倒数第二个 Block
+            if (self.use_motion_token or self.use_quantized_of) and i == len(self.blocks) - 2:  # 倒数第二个 Block
                 intermediate_output = x
         
         pred_motion_latents = None
@@ -227,7 +227,6 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
             # 这里的 x 需要截断，只保留 action 部分进入 head
             action_out = x[:, : self.input_len, :]
         elif self.use_quantized_of:
-            # import ipdb;ipdb.set_trace()
             quantized_of_feats = intermediate_output[:, -self.num_flow_tokens :, :]
             pred_quantized_of_logits = self.quantized_of_head(quantized_of_feats)
             # print(numpy.unique(pred_quantized_of_logits.detach().cpu()))
@@ -237,4 +236,4 @@ class TransformerNoisePredictionNet(NoisePredictionNet):
 
         x = self.head(action_out, cond)
         out = self.output_decoder(x)
-        return out, pred_motion_latents
+        return out, pred_motion_latents, pred_quantized_of_logits

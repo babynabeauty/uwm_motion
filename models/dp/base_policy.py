@@ -93,7 +93,7 @@ class DiffusionPolicy(nn.Module):
 
         # Diffusion loss
         #NOTE:返回的pred_motion_feats已经映射到了一样的维度
-        noise_pred, pred_motion_feats = self.noise_pred_net(
+        noise_pred, pred_motion_feats, pred_quantized_of_logits = self.noise_pred_net(
             noisy_action, t, global_cond=obs
         )
 
@@ -106,21 +106,41 @@ class DiffusionPolicy(nn.Module):
             else:
                 # 防止这一 batch 随机出来全是 0 (概率极低)
                 action_loss = action_loss.mean() * 0.0
-        
-        # print("action_active_ratio",action_mask.mean().item())
-        #FIXME:debug只用alignloss来做对齐
-        if pred_motion_feats is not None and gt_motion is not None:
+
+        motion_loss = torch.tensor(0.0, device=action.device)
+
+        if pred_quantized_of_logits is not None:
+            if gt_motion is None:
+                raise ValueError(
+                    "use_quantized_of=True but gt_motion is None. "
+                    "Please provide quantized optical-flow token ids with shape [B, N, M]."
+                )
+            target_tokens = gt_motion.long()
+            if target_tokens.ndim == 3:
+                target_tokens = target_tokens.reshape(target_tokens.shape[0], -1)
+            if target_tokens.ndim != 2:
+                raise ValueError(
+                    "Quantized optical-flow targets must have shape [B, N, M] or [B, N*M]. "
+                    f"Got shape={gt_motion.shape}."
+                )
+            if target_tokens.shape != pred_quantized_of_logits.shape[:2]:
+                raise ValueError(
+                    "Quantized optical-flow target shape mismatch: "
+                    f"pred={pred_quantized_of_logits.shape[:2]}, gt={target_tokens.shape}."
+                )
+            motion_loss = F.cross_entropy(
+                pred_quantized_of_logits.reshape(-1, pred_quantized_of_logits.shape[-1]),
+                target_tokens.reshape(-1),
+            )
+        elif pred_motion_feats is not None and gt_motion is not None:
             if pred_motion_feats.shape != gt_motion.shape:
                 raise ValueError(
                     f"Motion target shape mismatch: pred={pred_motion_feats.shape}, "
                     f"gt={gt_motion.shape}. Please set motion latent shape config to match dataset."
                 )
             motion_loss = F.mse_loss(pred_motion_feats, gt_motion)
-            total_loss = action_loss + motion_loss
-        else:
-            motion_loss = torch.tensor(0.0, device=action.device)
-            total_loss = action_loss
 
+        total_loss = action_loss + motion_loss
         return {
             "loss": total_loss,
             "action_loss": action_loss,
