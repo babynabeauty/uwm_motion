@@ -26,6 +26,9 @@ def init_wandb(config, job_type):
         config: config dictionary
         job_type: "train" or "eval"
     """
+    wandb_run_dir = os.path.join(config.logdir, "wandb_artifacts")
+    os.makedirs(wandb_run_dir, exist_ok=True)
+
     run_id_path = os.path.join(config.logdir, f"run_id_{job_type}.json")
     if config.resume and os.path.exists(run_id_path):
         # Load WANDB run ID from log directory
@@ -45,6 +48,7 @@ def init_wandb(config, job_type):
         config=OmegaConf.to_container(config, resolve=True),
         resume=config.resume,
         id=run_id,
+        dir=wandb_run_dir,
     )
 
 

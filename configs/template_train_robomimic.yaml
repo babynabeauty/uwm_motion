@@ -1,6 +1,6 @@
 hydra:
   run:
-    dir: bc_finetune/${algo}/${dataset.name}/${exp_id}/${seed}
+    dir: ${oc.env:UWM_RUN_DIR_BASE,/data/shared_workspace/zhangshiqi/uwm_motion_runs}/bc_finetune/${algo}/${dataset.name}/${exp_id}/${seed}
 
 algo: ${hydra:runtime.choices.model}
 exp_id: default
@@ -8,6 +8,7 @@ seed: 0
 logdir: ${hydra:run.dir}
 resume: False
 use_amp: False
+ema_decay: 0.999
 eval_task_name: ${dataset.name}
 pretrain_checkpoint_path: null
 
@@ -16,6 +17,7 @@ eval_every: 1000
 save_every: 1000
 rollout_every: 1000
 num_rollouts: 50
+num_parallel_rollout_envs: 1
 rollout_length: 1000
 disable_rollout: False
 

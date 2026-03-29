@@ -23,39 +23,51 @@ export LD_LIBRARY_PATH="${TORCH_CUDNN_LIB}:${TORCH_CUBLAS_LIB}:${LD_LIBRARY_PATH
 
 action_len=8
 codebook_size=8
-#setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size8_best.log 2>&1 &
+DF=3
+epoch=500
+NUM_TOKEN=16
+# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size64_df3_500.log 2>&1 &
 PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq/output"
 # EXP_ID="libero_10_stride8_baseline"
-EXP_ID="libero_10_stride${action_len}_size${codebook_size}_best"
+EXP_ID="debug"
+# EXP_ID="libero_10_stride${action_len}_size${codebook_size}_best"
+# EXP_ID="libero_10_stride${action_len}_size${codebook_size}_df${DF}_${epoch}"
 VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_best.pt"
+# VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}_df${DF}/flow_vqvae_epoch_${epoch}.pt"
 # VQVAE_CKPT="None"
 USE_VQVAE=True
-BS=72
-ROLLOUT=10
-CUDA_VISIBLE_DEVICES=5,6 python experiments/dp/train_robomimic.py \
+BS=1
+LR=1e-4
+ROLLOUT=1
+PARALLEL_ROLLOUT_ENVS=1
+RESUME=False
+
+CUDA_VISIBLE_DEVICES=3 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
     exp_id=$EXP_ID \
     model.noise_pred_net.use_motion_token=False \
     model.noise_pred_net.motion_mask=False \
     model.mixture=0 \
+    model.lambda_motion=0.05 \
     model.noise_pred_net.use_quantized_of=$USE_VQVAE \
     model.noise_pred_net.optical_flow_mask=False \
     model.noise_pred_net.quantized_of_vqvae_ckpt_path=$VQVAE_CKPT \
     model.noise_pred_net.quantized_of_vqvae_repo_path=/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq \
-    model.noise_pred_net.num_flow_tokens=16 \
+    model.noise_pred_net.num_flow_tokens=$NUM_TOKEN \
     num_frames=9 \
     model.action_len=8 \
-    eval_every=5000 \
-    save_every=5000 \
-    rollout_every=5000 \
+    eval_every=1000 \
+    save_every=10 \
+    rollout_every=10 \
     num_rollouts=$ROLLOUT \
-    num_steps=300000 \
+    num_parallel_rollout_envs=$PARALLEL_ROLLOUT_ENVS \
+    num_steps=150000 \
     batch_size=$BS \
-    optimizer.lr=2e-4 \
+    optimizer.lr=$LR \
     dataset=libero_10 \
-    model.obs_encoder.use_language=False \
-    model.obs_encoder.imagenet_norm=True \
-    resume=False \
-    # model.obs_encoder.pretrained_weights=clip \
+    model.obs_encoder.use_language=True \
+    model.obs_encoder.imagenet_norm=False \
+    resume=$RESUME \
+    model.obs_encoder.pretrained_weights=clip 
 
 

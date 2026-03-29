@@ -1,5 +1,12 @@
+import os
+
+from experiments.runtime_env import bootstrap_non_root_runtime
+
+bootstrap_non_root_runtime()
+
 import hydra
 import sys
+import numpy as np
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -12,7 +19,6 @@ from hydra.utils import instantiate
 from torch.nn.parallel import DistributedDataParallel
 from tqdm import trange, tqdm
 import ipdb
-import os
 from experiments.utils import find_free_port
 from datasets.utils.loader import make_distributed_data_loader
 from datasets.utils.file_utils import glob_all
@@ -23,6 +29,8 @@ from experiments.dp.train import (
     maybe_evaluate,
     maybe_save_checkpoint,
     build_frozen_flow_vqvae,
+    init_ema_model,
+    update_ema_model,
 )
 from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process, get_libero_instruction
 
@@ -35,6 +43,146 @@ def _get_tokenizer():
             '/data/shared_workspace/LLM_weights/openai/clip-vit-base-patch32'
         )
     return _CLIP_TOKENIZER
+
+
+def _stack_obs_batch(obs_list):
+    return {k: np.stack([obs[k] for obs in obs_list], axis=0) for k in obs_list[0]}
+
+
+def _repeat_tokens(tokens, batch_size):
+    return {
+        "input_ids": tokens["input_ids"].expand(batch_size, -1),
+        "attention_mask": tokens["attention_mask"].expand(batch_size, -1),
+    }
+
+
+def _collect_serial_rollout_for_task(config, model, device, rank, path, tokenizer, render_gpu_id, record_video):
+    task_name = os.path.basename(path).replace(".hdf5", "")
+    instruction = get_libero_instruction(path)
+    tokens = tokenizer(
+        instruction, padding='max_length', max_length=25,
+        truncation=True, return_tensors='pt'
+    ).to(device)
+
+    print(f"[Rank {rank}] Collecting rollouts for task: {task_name}", flush=True)
+    env = make_robomimic_env(
+        dataset_name=config.dataset.name,
+        dataset_path=path,
+        shape_meta=config.dataset.shape_meta,
+        obs_horizon=model.obs_encoder.num_frames,
+        max_episode_length=config.rollout_length,
+        record=record_video,
+        render_gpu_id=render_gpu_id,
+    )
+
+    successes = []
+    last_video = None
+    try:
+        for e in trange(config.num_rollouts, desc=f"[Rank {rank}] Testing {task_name}"):
+            env.seed(e)
+            obs = env.reset()
+            done = False
+            while not done:
+                obs_tensor = {k: torch.tensor(v, device=device)[None] for k, v in obs.items()}
+                obs_tensor.update(_repeat_tokens(tokens, 1))
+
+                with torch.no_grad():
+                    action = model.sample(obs_tensor)[0].cpu().numpy()
+
+                obs, reward, done, info = env.step(action)
+            successes.append(info["success"])
+
+        if record_video:
+            last_video = env.get_video()
+    finally:
+        env.close()
+
+    return sum(successes) / len(successes), last_video
+
+
+def _collect_libero_parallel_rollout_for_task(
+    config,
+    model,
+    device,
+    rank,
+    path,
+    tokenizer,
+    render_gpu_id,
+    record_video,
+):
+    task_name = os.path.basename(path).replace(".hdf5", "")
+    instruction = get_libero_instruction(path)
+    tokens = tokenizer(
+        instruction, padding='max_length', max_length=25,
+        truncation=True, return_tensors='pt'
+    ).to(device)
+
+    num_parallel_envs = max(1, min(getattr(config, "num_parallel_rollout_envs", 1), config.num_rollouts))
+    print(
+        f"[Rank {rank}] Collecting parallel rollouts for task: {task_name} "
+        f"with {num_parallel_envs} envs",
+        flush=True,
+    )
+
+    envs = []
+    env_active = []
+    current_obs = []
+    next_seed = 0
+    successes = []
+    last_video = None
+
+    try:
+        for env_idx in range(num_parallel_envs):
+            env = make_robomimic_env(
+                dataset_name=config.dataset.name,
+                dataset_path=path,
+                shape_meta=config.dataset.shape_meta,
+                obs_horizon=model.obs_encoder.num_frames,
+                max_episode_length=config.rollout_length,
+                record=record_video and env_idx == 0,
+                render_gpu_id=render_gpu_id,
+            )
+            envs.append(env)
+
+            if next_seed < config.num_rollouts:
+                env.seed(next_seed)
+                current_obs.append(env.reset())
+                env_active.append(True)
+                next_seed += 1
+            else:
+                current_obs.append(None)
+                env_active.append(False)
+
+        while any(env_active):
+            active_indices = [i for i, active in enumerate(env_active) if active]
+            obs_batch = _stack_obs_batch([current_obs[i] for i in active_indices])
+            obs_tensor = {k: torch.tensor(v, device=device) for k, v in obs_batch.items()}
+            obs_tensor.update(_repeat_tokens(tokens, len(active_indices)))
+
+            with torch.no_grad():
+                action_batch = model.sample(obs_tensor).cpu().numpy()
+
+            for batch_idx, env_idx in enumerate(active_indices):
+                obs, reward, done, info = envs[env_idx].step(action_batch[batch_idx])
+                current_obs[env_idx] = obs
+
+                if done:
+                    successes.append(info["success"])
+                    if last_video is None and record_video and env_idx == 0:
+                        last_video = envs[env_idx].get_video()
+
+                    if next_seed < config.num_rollouts:
+                        envs[env_idx].seed(next_seed)
+                        current_obs[env_idx] = envs[env_idx].reset()
+                        next_seed += 1
+                    else:
+                        env_active[env_idx] = False
+                        current_obs[env_idx] = None
+    finally:
+        for env in envs:
+            env.close()
+
+    return sum(successes) / len(successes), last_video
 
 
 def collect_rollout(config, model, device, rank=0, world_size=1):
@@ -57,60 +205,34 @@ def collect_rollout(config, model, device, rank=0, world_size=1):
 
     for path in my_paths:
         task_name = os.path.basename(path).replace(".hdf5", "")
-        instruction = get_libero_instruction(path)
-
-        tokens = tokenizer(
-            instruction, padding='max_length', max_length=MAX_TEXT_LEN,
-            truncation=True, return_tensors='pt'
-        ).to(device)
-
-        print(f"[Rank {rank}] Collecting rollouts for task: {task_name}", flush=True)
         record_video = (rank == 0)
-        env = make_robomimic_env(
-            dataset_name=config.dataset.name,
-            dataset_path=path,
-            shape_meta=config.dataset.shape_meta,
-            obs_horizon=model.obs_encoder.num_frames,
-            max_episode_length=config.rollout_length,
-            record=record_video,
-            render_gpu_id=render_gpu_id,
-        )
+        if "libero" in config.dataset.name and getattr(config, "num_parallel_rollout_envs", 1) > 1:
+            task_sr, task_video = _collect_libero_parallel_rollout_for_task(
+                config, model, device, rank, path, tokenizer, render_gpu_id, record_video
+            )
+        else:
+            task_sr, task_video = _collect_serial_rollout_for_task(
+                config, model, device, rank, path, tokenizer, render_gpu_id, record_video
+            )
 
-        successes = []
-        for e in trange(config.num_rollouts, desc=f"[Rank {rank}] Testing {task_name}"):
-            env.seed(e)
-            obs = env.reset()
-            done = False
-            while not done:
-                obs_tensor = {k: torch.tensor(v, device=device)[None] for k, v in obs.items()}
-                obs_tensor["input_ids"] = tokens["input_ids"]
-                obs_tensor["attention_mask"] = tokens["attention_mask"]
-
-                with torch.no_grad():
-                    action = model.sample(obs_tensor)[0].cpu().numpy()
-
-                obs, reward, done, info = env.step(action)
-            successes.append(info["success"])
-
-        task_sr = sum(successes) / len(successes)
         all_results[f"rollout/success_rate_{task_name}"] = task_sr
         print(f"[Rank {rank}] Task success: {task_sr:.4f}", flush=True)
-        if record_video:
-            last_video = env.get_video()
-        env.close()
+        if task_video is not None:
+            last_video = task_video
 
     print(f"[Rank {rank}] Finished all rollout tasks", flush=True)
     return all_results, last_video
 
 
-def maybe_collect_rollout(config, step, model, device, rank, world_size, cpu_group=None):
+def maybe_collect_rollout(config, step, model, device, rank, world_size, cpu_group=None, ema_model=None):
     if getattr(config, "disable_rollout", False):
         return
-    if step > -1 and (step % config.rollout_every == 0 or step == (config.num_steps - 1)):
+    if step > 1 and (step % config.rollout_every == 0 or step == (config.num_steps - 1)):
         dist.barrier()
 
+        rollout_model = ema_model if ema_model is not None else model
         local_results, local_video = collect_rollout(
-            config, model, device, rank, world_size
+            config, rollout_model, device, rank, world_size
         )
 
         print(f"[Rank {rank}] Gathering rollout results...", flush=True)
@@ -187,6 +309,7 @@ def train(rank, world_size, config):
 
     # Resume from checkpoint
     step = maybe_resume_checkpoint(config, model, optimizer, scheduler, scaler)
+    ema_model = init_ema_model(model)
     epoch = step // len(train_loader)
 
     # Wrap model with DDP
@@ -209,6 +332,7 @@ def train(rank, world_size, config):
             loss, info = train_one_step(
                 config, model, optimizer, scheduler, scaler, batch, device,flow_vqvae
             )
+            update_ema_model(ema_model, model, config.ema_decay)
 
             # --- Logging ---
             if is_main_process():
@@ -216,13 +340,19 @@ def train(rank, world_size, config):
                 wandb.log({f"train/{k}": v for k, v in info.items()}, step=step)
 
             # --- Evaluate if needed ---
-            maybe_evaluate(config, step, model, val_loader, device, action_normalizer,flow_vqvae)
+            maybe_evaluate(
+                config, step, model, val_loader, device, action_normalizer, flow_vqvae, eval_model=ema_model
+            )
 
             # ---Collect environment rollouts if needed ---
-            maybe_collect_rollout(config, step, model, device, rank, world_size, cpu_group)
+            maybe_collect_rollout(
+                config, step, model, device, rank, world_size, cpu_group, ema_model=ema_model
+            )
 
             # --- Save checkpoint if needed ---
-            maybe_save_checkpoint(config, step, model, optimizer, scheduler, scaler, action_normalizer)
+            maybe_save_checkpoint(
+                config, step, model, optimizer, scheduler, scaler, action_normalizer, save_model=ema_model
+            )
 
             step += 1
             pbar.update(1)
@@ -248,8 +378,8 @@ def main(config):
         os.environ["MASTER_ADDR"] = "localhost"
         
     world_size = torch.cuda.device_count()
-    mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
-    # train(0, 1, config)
+    # mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    train(0, 1, config)
 
 
 if __name__ == "__main__":

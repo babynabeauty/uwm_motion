@@ -116,9 +116,56 @@ def get_clip(embed_dim, **kwargs):
         **kwargs: Additional keyword arguments to be passed to the timm model creation function.
     """
 
-    clip = timm.create_model(
-        "hf_hub:timm/vit_base_patch32_clip_224.openai", pretrained=True, **kwargs
+    LOCAL_CLIP_VIT_PATH = (
+        "/data/shared_workspace/zhangshiqi/hf/ViT/models--timm--vit_base_patch32_clip_224.openai"
     )
+
+    clip = timm.create_model("vit_base_patch32_clip_224", pretrained=False, **kwargs)
+    ckpt_candidates = [
+        os.path.join(LOCAL_CLIP_VIT_PATH, "open_clip_pytorch_model.bin"),
+        os.path.join(LOCAL_CLIP_VIT_PATH, "pytorch_model.bin"),
+    ]
+    ckpt_path = next((p for p in ckpt_candidates if os.path.exists(p)), None)
+    if ckpt_path is None:
+        raise FileNotFoundError(
+            "Local CLIP weights not found. Expected one of: "
+            + ", ".join(ckpt_candidates)
+        )
+    state_dict = torch.load(ckpt_path, map_location="cpu")
+    visual_state_dict = {}
+    for key, value in state_dict.items():
+        if not key.startswith("visual."):
+            continue
+        new_key = key[len("visual.") :]
+        new_key = new_key.replace("class_embedding", "cls_token")
+        new_key = new_key.replace("positional_embedding", "pos_embed")
+        new_key = new_key.replace("conv1.weight", "patch_embed.proj.weight")
+        new_key = new_key.replace("ln_pre.", "norm_pre.")
+        new_key = new_key.replace("transformer.resblocks.", "blocks.")
+        new_key = new_key.replace(".ln_1.", ".norm1.")
+        new_key = new_key.replace(".ln_2.", ".norm2.")
+        new_key = new_key.replace(".attn.in_proj_", ".attn.qkv.")
+        new_key = new_key.replace(".attn.out_proj.", ".attn.proj.")
+        new_key = new_key.replace(".mlp.c_fc.", ".mlp.fc1.")
+        new_key = new_key.replace(".mlp.c_proj.", ".mlp.fc2.")
+        new_key = new_key.replace("ln_post.", "norm.")
+        if new_key == "proj":
+            continue
+        if new_key == "cls_token":
+            value = value.reshape(1, 1, -1)
+        elif new_key == "pos_embed":
+            value = value.unsqueeze(0)
+        visual_state_dict[new_key] = value
+    missing, unexpected = clip.load_state_dict(visual_state_dict, strict=False)
+    if unexpected:
+        raise RuntimeError(f"Unexpected local CLIP keys: {unexpected}")
+    allowed_missing = {"head.weight", "head.bias"}
+    if set(missing) - allowed_missing:
+        raise RuntimeError(f"Missing local CLIP keys: {missing}")
+
+    # clip = timm.create_model(
+    #     "hf_hub:timm/vit_base_patch32_clip_224.openai", pretrained=True, **kwargs
+    # )
     clip.head = nn.Linear(768, embed_dim)
 
     return clip

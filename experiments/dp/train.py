@@ -1,4 +1,9 @@
+import copy
 import os
+
+from experiments.runtime_env import bootstrap_non_root_runtime
+
+bootstrap_non_root_runtime()
 
 import hydra
 import torch
@@ -16,6 +21,27 @@ from tqdm import tqdm
 import sys
 from datasets.utils.loader import make_distributed_data_loader
 from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process
+
+"""构建EMA模型"""
+def unwrap_model(model):
+    return getattr(model, "module", model)
+
+
+def init_ema_model(model):
+    ema_model = copy.deepcopy(unwrap_model(model)).eval()
+    for p in ema_model.parameters():
+        p.requires_grad = False
+    return ema_model
+
+
+@torch.no_grad()
+def update_ema_model(ema_model, model, decay: float):
+    src_model = unwrap_model(model)
+    for ema_param, src_param in zip(ema_model.parameters(), src_model.parameters()):
+        ema_param.data.mul_(decay).add_(src_param.data, alpha=1.0 - decay)
+    for ema_buffer, src_buffer in zip(ema_model.buffers(), src_model.buffers()):
+        ema_buffer.data.copy_(src_buffer.data)
+
 
 def build_frozen_flow_vqvae(config, device):
     noise_cfg = config.model.noise_pred_net
@@ -174,7 +200,7 @@ def process_batch(batch, obs_horizon, action_horizon, use_quantized_of, device,f
 
 def eval_one_epoch(config, data_loader, device, model, action_normalizer=None,flow_vqvae: Optional[torch.nn.Module] = None):
     model.eval()
-    model = getattr(model, "module", model)  # unwrap DDP
+    model = unwrap_model(model)
 
     # Unnormalize actions
     if action_normalizer is not None:
@@ -268,11 +294,21 @@ def maybe_resume_checkpoint(
     return step
 
 
-def maybe_evaluate(config, step, model, loader, device, action_normalizer=None,flow_vqvae: Optional[torch.nn.Module] = None):
+def maybe_evaluate(
+    config,
+    step,
+    model,
+    loader,
+    device,
+    action_normalizer=None,
+    flow_vqvae: Optional[torch.nn.Module] = None,
+    eval_model=None,
+):
     """Evaluate if it's the correct step."""
-    if step > -1:
+    if step > 1:
         if step % config.eval_every == 0 or step == (config.num_steps - 1):
-            stats = eval_one_epoch(config, loader, device, model, action_normalizer,flow_vqvae)
+            target_model = eval_model if eval_model is not None else model
+            stats = eval_one_epoch(config, loader, device, target_model, action_normalizer,flow_vqvae)
             if is_main_process():
                 wandb.log({"global_step": step, **{f"eval/{k}": v for k, v in stats.items()}})
                 print(f"Step {step} action mse: {stats['action_mse']:.4f}")
@@ -287,14 +323,16 @@ def maybe_save_checkpoint(
     scaler,
     action_normalizer=None,
     lowdim_normalizer=None,
+    save_model=None,
     ckpt_name="models.pt",
 ):
     """Save checkpoint on the main process if it's the correct step."""
     if is_main_process() and (
         step % config.save_every == 0 or step == (config.num_steps - 1)
     ):
+        target_model = unwrap_model(save_model if save_model is not None else model)
         ckpt = {
-            "model": model.module.state_dict(),
+            "model": target_model.state_dict(),
             "optimizer": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
             "scaler": scaler.state_dict(),
@@ -362,6 +400,7 @@ def train(rank, world_size, config):
 
     # Resume from checkpoint
     step = maybe_resume_checkpoint(config, model, optimizer, scheduler, scaler)
+    ema_model = init_ema_model(model)
     epoch = step // len(train_loader)
 
     # Wrap model with DDP
@@ -383,6 +422,7 @@ def train(rank, world_size, config):
             loss, info = train_one_step(
                 config, model, optimizer, scheduler, scaler, batch, device,flow_vqvae
             )
+            update_ema_model(ema_model, model, config.ema_decay)
 
             # --- Logging ---
             if is_main_process():
@@ -392,7 +432,7 @@ def train(rank, world_size, config):
 
             # --- Evaluate if needed ---
             maybe_evaluate(
-                config, step, model, val_loader, device, train_set.action_normalizer
+                config, step, model, val_loader, device, train_set.action_normalizer, eval_model=ema_model
             )
 
             # --- Save checkpoint if needed ---
@@ -405,6 +445,7 @@ def train(rank, world_size, config):
                 scaler,
                 train_set.action_normalizer,
                 train_set.lowdim_normalizer,
+                save_model=ema_model,
             )
 
             step += 1
@@ -421,8 +462,8 @@ def main(config):
     OmegaConf.resolve(config)
     # Spawn processes
     world_size = torch.cuda.device_count()
-    mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
-    # train(0, 1, config)
+    # mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    train(0, 1, config)
 
 
 

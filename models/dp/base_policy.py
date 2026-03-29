@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from diffusers.schedulers.scheduling_ddim import DDIMScheduler
-import ipdb
+
 
 class NoisePredictionNet(nn.Module, ABC):
 
@@ -25,6 +25,7 @@ class DiffusionPolicy(nn.Module):
         beta_schedule="squaredcos_cap_v2",
         clip_sample=True,
         mixture=False,
+        lambda_motion=0.05,
     ):
         super().__init__()
         self.action_len = action_len
@@ -35,6 +36,7 @@ class DiffusionPolicy(nn.Module):
 
         #FIXME:是否要混合损失
         self.mixture = mixture
+        self.lambda_motion = lambda_motion
 
         # Noise prediction net
         assert isinstance(noise_pred_net, NoisePredictionNet)
@@ -140,7 +142,7 @@ class DiffusionPolicy(nn.Module):
                 )
             motion_loss = F.mse_loss(pred_motion_feats, gt_motion)
 
-        total_loss = action_loss + motion_loss
+        total_loss = action_loss + self.lambda_motion * motion_loss
         return {
             "loss": total_loss,
             "action_loss": action_loss,
@@ -177,7 +179,6 @@ class FlowPolicy(nn.Module):
         action = torch.randn(
             (obs.shape[0], self.action_len, self.action_dim), device=obs.device
         )
-        ipdb.set_trace()
         for tcont, tcont_next in zip(self.timesteps[:-1], self.timesteps[1:]):
             # Predict noise
             t = (tcont * self.num_train_steps).long()

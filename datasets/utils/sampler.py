@@ -39,7 +39,9 @@ class TrajectorySampler:
         # import ipdb;ipdb.set_trace()
         print(f"Total number of valid sequences: {len(self.indices)}")
 
+        # tokenizer = CLIPTokenizer.from_pretrained('/data/shared_workspace/LLM_weights/openai/clip-vit-base-patch32')
         tokenizer = CLIPTokenizer.from_pretrained('/data/shared_workspace/LLM_weights/openai/clip-vit-base-patch32')
+
 
         # 手动设置 pad_token
         if tokenizer.pad_token is None:
