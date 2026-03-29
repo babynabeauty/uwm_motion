@@ -462,8 +462,8 @@ def main(config):
     OmegaConf.resolve(config)
     # Spawn processes
     world_size = torch.cuda.device_count()
-    # mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
-    train(0, 1, config)
+    mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    # train(0, 1, config)
 
 
 
