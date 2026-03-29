@@ -9,11 +9,11 @@ export PYTHONPATH=/data/workspace/zhangshiqi/uwm_motion:$PYTHONPATH
 export WANDB_API_KEY=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
 export WANDB_MODE=online
 export WANDB_DIR=/data/workspace/zhangshiqi/uwm_motion/wandb
-export UWM_RUN_DIR_BASE=/data/shared_workspace/zhangshiqi/uwm_motion_runs
-export TMPDIR=/tmp
-export TMP=/tmp
-export TEMP=/tmp
-mkdir -p "$WANDB_DIR" "$UWM_RUN_DIR_BASE" "$TMPDIR"
+# export UWM_RUN_DIR_BASE=/data/shared_workspace/zhangshiqi/uwm_motion_runs
+# export TMPDIR=/tmp
+# export TMP=/tmp
+# export TEMP=/tmp
+# mkdir -p "$WANDB_DIR" "$UWM_RUN_DIR_BASE" "$TMPDIR"
 
 # Remove incompatible legacy cuDNN path and prioritize PyTorch bundled CUDA libs.
 LD_LIBRARY_PATH_CLEAN="$(echo "${LD_LIBRARY_PATH:-}" | tr ':' '\n' | rg -v 'cudnn-8\.2\.1-cuda11\.3_0/lib' | paste -sd ':' -)"
@@ -22,27 +22,26 @@ TORCH_CUBLAS_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-
 export LD_LIBRARY_PATH="${TORCH_CUDNN_LIB}:${TORCH_CUBLAS_LIB}:${LD_LIBRARY_PATH_CLEAN}"
 
 action_len=8
-codebook_size=8
-DF=3
-epoch=500
+codebook_size=256
+DF=5
+epoch=best
 NUM_TOKEN=16
-# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size64_df3_500.log 2>&1 &
+# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size256_df5_best.log 2>&1 &
 PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq/output"
 # EXP_ID="libero_10_stride8_baseline"
-EXP_ID="debug"
-# EXP_ID="libero_10_stride${action_len}_size${codebook_size}_best"
-# EXP_ID="libero_10_stride${action_len}_size${codebook_size}_df${DF}_${epoch}"
+# EXP_ID="debug"
+EXP_ID="libero_10_stride${action_len}_size${codebook_size}_df${DF}_${epoch}"
 VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_best.pt"
+# VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_epoch_${epoch}.pt"
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}_df${DF}/flow_vqvae_epoch_${epoch}.pt"
 # VQVAE_CKPT="None"
 USE_VQVAE=True
-BS=1
-LR=1e-4
-ROLLOUT=1
-PARALLEL_ROLLOUT_ENVS=1
+BS=72
+LR=2e-4
+ROLLOUT=10
 RESUME=False
 
-CUDA_VISIBLE_DEVICES=3 python experiments/dp/train_robomimic.py \
+CUDA_VISIBLE_DEVICES=5,7 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
     exp_id=$EXP_ID \
     model.noise_pred_net.use_motion_token=False \
@@ -56,11 +55,10 @@ CUDA_VISIBLE_DEVICES=3 python experiments/dp/train_robomimic.py \
     model.noise_pred_net.num_flow_tokens=$NUM_TOKEN \
     num_frames=9 \
     model.action_len=8 \
-    eval_every=1000 \
-    save_every=10 \
-    rollout_every=10 \
+    eval_every=10000 \
+    save_every=10000 \
+    rollout_every=10000 \
     num_rollouts=$ROLLOUT \
-    num_parallel_rollout_envs=$PARALLEL_ROLLOUT_ENVS \
     num_steps=150000 \
     batch_size=$BS \
     optimizer.lr=$LR \
