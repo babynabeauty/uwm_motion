@@ -115,7 +115,7 @@ def collect_rollout(config, model, device, rank=0, world_size=1):
 
 def maybe_collect_rollout(config, step, model, device, rank, world_size, cpu_group=None, ema_model=None):
     if getattr(config, "disable_rollout", False):
-        return
+        return None
     if step > 1 and (step % config.rollout_every == 0 or step == (config.num_steps - 1)):
         dist.barrier()
 
@@ -149,6 +149,9 @@ def maybe_collect_rollout(config, step, model, device, rank, world_size, cpu_gro
             wandb.log(merged)
 
         dist.barrier()
+        if is_main_process():
+            return avg_sr
+    return None
 
 
 def train(rank, world_size, config):
@@ -234,13 +237,21 @@ def train(rank, world_size, config):
             )
 
             # ---Collect environment rollouts if needed ---
-            maybe_collect_rollout(
+            rollout_avg_sr = maybe_collect_rollout(
                 config, step, model, device, rank, world_size, cpu_group, ema_model=ema_model
             )
 
             # --- Save checkpoint if needed ---
             maybe_save_checkpoint(
-                config, step, model, optimizer, scheduler, scaler, action_normalizer, save_model=ema_model
+                config,
+                step,
+                model,
+                optimizer,
+                scheduler,
+                scaler,
+                action_normalizer,
+                save_model=ema_model,
+                rollout_avg_sr=rollout_avg_sr,
             )
 
             step += 1

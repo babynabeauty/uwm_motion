@@ -324,9 +324,10 @@ def maybe_save_checkpoint(
     action_normalizer=None,
     lowdim_normalizer=None,
     save_model=None,
+    rollout_avg_sr=None,
     ckpt_name="models.pt",
 ):
-    """Save checkpoint on the main process if it's the correct step."""
+    """Save latest checkpoint and optionally update rollout-best checkpoint."""
     if is_main_process() and (
         step % config.save_every == 0 or step == (config.num_steps - 1)
     ):
@@ -340,15 +341,32 @@ def maybe_save_checkpoint(
             "lowdim_normalizer": lowdim_normalizer,
             "step": step,
         }
-        # Save step-specific checkpoint (not overwritten)
-        stem, ext = os.path.splitext(ckpt_name)
-        step_ckpt_path = os.path.join(config.logdir, f"{stem}_step{step}{ext}")
-        torch.save(ckpt, step_ckpt_path)
-        print(f"Saved checkpoint at step {step} to {step_ckpt_path}")
-
-        # Also save as latest for easy resume
+        # Always keep latest checkpoint for resume.
         latest_path = os.path.join(config.logdir, ckpt_name)
         torch.save(ckpt, latest_path)
+        print(f"Saved latest checkpoint at step {step} to {latest_path}")
+
+        # Keep only one best checkpoint based on rollout average success rate.
+        if rollout_avg_sr is not None:
+            best_meta_path = os.path.join(config.logdir, "best_ckpt_meta.pt")
+            prev_best_sr = float("-inf")
+            if os.path.exists(best_meta_path):
+                try:
+                    prev_best_sr = float(torch.load(best_meta_path, map_location="cpu").get("best_rollout_avg_sr", float("-inf")))
+                except Exception:
+                    prev_best_sr = float("-inf")
+
+            if float(rollout_avg_sr) >= prev_best_sr:
+                best_path = os.path.join(config.logdir, "models_best.pt")
+                torch.save(ckpt, best_path)
+                torch.save(
+                    {"best_rollout_avg_sr": float(rollout_avg_sr), "best_step": int(step)},
+                    best_meta_path,
+                )
+                print(
+                    f"Updated best checkpoint: avg_success_rate={float(rollout_avg_sr):.4f}, "
+                    f"step={step}, path={best_path}"
+                )
 
 
 def train(rank, world_size, config):

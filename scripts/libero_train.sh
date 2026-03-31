@@ -22,17 +22,17 @@ TORCH_CUBLAS_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-
 export LD_LIBRARY_PATH="${TORCH_CUDNN_LIB}:${TORCH_CUBLAS_LIB}:${LD_LIBRARY_PATH_CLEAN}"
 
 action_len=8
-codebook_size=256
+codebook_size=64
 DF=5
-epoch=best
+epoch=200
 NUM_TOKEN=16
-# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size256_df5_best.log 2>&1 &
+# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size64_df5_200_True.log 2>&1 &
 PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq/output"
 # EXP_ID="libero_10_stride8_baseline"
 # EXP_ID="debug"
 EXP_ID="libero_10_stride${action_len}_size${codebook_size}_df${DF}_${epoch}"
-VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_best.pt"
-# VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_epoch_${epoch}.pt"
+# VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_best.pt"
+VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_epoch_${epoch}.pt"
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}_df${DF}/flow_vqvae_epoch_${epoch}.pt"
 # VQVAE_CKPT="None"
 USE_VQVAE=True
@@ -41,7 +41,7 @@ LR=2e-4
 ROLLOUT=10
 RESUME=False
 
-CUDA_VISIBLE_DEVICES=5,7 python experiments/dp/train_robomimic.py \
+CUDA_VISIBLE_DEVICES=3,4 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
     exp_id=$EXP_ID \
     model.noise_pred_net.use_motion_token=False \
