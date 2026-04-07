@@ -184,20 +184,24 @@ def train(rank, world_size, config):
 
     # Create model
 
-    flow_vqvae, num_spatial_tokens = build_frozen_flow_vqvae(config, device)
+    flow_vqvae, num_spatial_tokens, background_id = build_frozen_flow_vqvae(config, device)
 
     model = instantiate(config.model).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), **config.optimizer)
     scheduler = get_scheduler(optimizer=optimizer, **config.scheduler)
     scaler = torch.cuda.amp.GradScaler(enabled=config.use_amp)
 
-    # Load pretrained model
+    # Load pretrained model (strict=False to allow new VQ-VAE params to stay randomly initialized)
     if config.pretrain_checkpoint_path:
         ckpt = torch.load(config.pretrain_checkpoint_path, map_location="cpu")
-        model.load_state_dict(ckpt["model"])
-        print(
-            f"Loaded pretraining checkpoint {config.pretrain_checkpoint_path}, step: {ckpt['step']}"
-        )
+        missing, unexpected = model.load_state_dict(ckpt["model"], strict=False)
+        if is_main_process():
+            print(f"Loaded pretrain ckpt: {config.pretrain_checkpoint_path}, "
+                  f"orig step: {ckpt.get('step', '?')}")
+            if missing:
+                print(f"  Missing keys (newly initialized): {missing}")
+            if unexpected:
+                print(f"  Unexpected keys (ignored): {unexpected}")
 
     # Resume from checkpoint
     step = maybe_resume_checkpoint(config, model, optimizer, scheduler, scaler)
@@ -222,7 +226,8 @@ def train(rank, world_size, config):
         for batch in train_loader:
             # --- Training step ---
             loss, info = train_one_step(
-                config, model, optimizer, scheduler, scaler, batch, device,flow_vqvae
+                config, model, optimizer, scheduler, scaler, batch, device,
+                flow_vqvae, background_id=background_id,
             )
             update_ema_model(ema_model, model, config.ema_decay)
 
@@ -233,7 +238,8 @@ def train(rank, world_size, config):
 
             # --- Evaluate if needed ---
             maybe_evaluate(
-                config, step, model, val_loader, device, action_normalizer, flow_vqvae, eval_model=ema_model
+                config, step, model, val_loader, device, action_normalizer,
+                flow_vqvae, eval_model=ema_model, background_id=background_id,
             )
 
             # ---Collect environment rollouts if needed ---

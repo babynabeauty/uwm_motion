@@ -21,7 +21,7 @@ from tqdm import tqdm
 import sys
 from datasets.utils.loader import make_distributed_data_loader
 from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process
-
+import ipdb
 """构建EMA模型"""
 def unwrap_model(model):
     return getattr(model, "module", model)
@@ -46,7 +46,7 @@ def update_ema_model(ema_model, model, decay: float):
 def build_frozen_flow_vqvae(config, device):
     noise_cfg = config.model.noise_pred_net
     if not bool(getattr(noise_cfg, "use_quantized_of", False)):
-        return None,None
+        return None, None, None
 
     ckpt_path = getattr(noise_cfg, "quantized_of_vqvae_ckpt_path", None)
     if not ckpt_path:
@@ -145,12 +145,13 @@ def build_frozen_flow_vqvae(config, device):
         else:
             dummy_indices = vqvae.encode(dummy)  # [1, h', w']
         num_spatial_tokens = dummy_indices.shape[1] * dummy_indices.shape[2]
+        background_id = int(dummy_indices.flatten()[0].item())
     if is_main_process():
         print(f"FlowVQVAE spatial resolution: {dummy_indices.shape[1]}x{dummy_indices.shape[2]}, "
               f"num_spatial_tokens (M) = {num_spatial_tokens}")
-    # config.model.noise_pred_net.quantized_of_num_spatial_tokens = num_spatial_tokens
+        print(f"FlowVQVAE background codebook ID (zero-flow): {background_id}")
 
-    return vqvae, num_spatial_tokens
+    return vqvae, num_spatial_tokens, background_id
 
 
 @torch.no_grad()
@@ -172,7 +173,9 @@ def extract_vq_indices_from_flow(
     return indices.reshape(b, t, m).long()
 
 
-def process_batch(batch, obs_horizon, action_horizon, use_quantized_of, device,flow_vqvae: Optional[torch.nn.Module] = None):
+def process_batch(batch, obs_horizon, action_horizon, use_quantized_of, device,
+                   flow_vqvae: Optional[torch.nn.Module] = None,
+                   background_id: Optional[int] = None):
     # Take the first `obs_horizon` observations
     obs = {k: v[:, :obs_horizon].to(device) for k, v in batch["obs"].items()}
 
@@ -188,9 +191,11 @@ def process_batch(batch, obs_horizon, action_horizon, use_quantized_of, device,f
         else:
             raise ValueError(f"Unsupported action length: {action_horizon}")
         gt_motion = extract_vq_indices_from_flow(flow, flow_vqvae)
+        #FIXME:过滤背景方法2
+        if background_id is not None:
+            gt_motion[gt_motion == background_id] = -1
     elif "optical_flow_raft_latent" in batch:
         gt_motion = batch["optical_flow_raft_latent"][:, -action_horizon:].to(device)
-
     # Add language tokens to observations
     if "input_ids" in batch and "attention_mask" in batch:
         obs["input_ids"] = batch["input_ids"].to(device)
@@ -198,7 +203,9 @@ def process_batch(batch, obs_horizon, action_horizon, use_quantized_of, device,f
     return obs, action, gt_motion
 
 
-def eval_one_epoch(config, data_loader, device, model, action_normalizer=None,flow_vqvae: Optional[torch.nn.Module] = None):
+def eval_one_epoch(config, data_loader, device, model, action_normalizer=None,
+                   flow_vqvae: Optional[torch.nn.Module] = None,
+                   background_id: Optional[int] = None):
     model.eval()
     model = unwrap_model(model)
 
@@ -214,7 +221,9 @@ def eval_one_epoch(config, data_loader, device, model, action_normalizer=None,fl
     for batch in tqdm(data_loader, desc="Evaluating", disable=not is_main_process()):
         # ------------ Preprocess data ------------ #
         obs, action, gt_motion = process_batch(
-            batch, config.model.obs_encoder.num_frames, config.model.action_len, config.model.noise_pred_net.use_quantized_of, device,flow_vqvae
+            batch, config.model.obs_encoder.num_frames, config.model.action_len,
+            config.model.noise_pred_net.use_quantized_of, device, flow_vqvae,
+            background_id=background_id,
         )
         # import ipdb; ipdb.set_trace()
         with torch.no_grad():
@@ -246,12 +255,16 @@ def eval_one_epoch(config, data_loader, device, model, action_normalizer=None,fl
     return stats
 
 
-def train_one_step(config, model, optimizer, scheduler, scaler, batch, device,flow_vqvae: Optional[torch.nn.Module] = None):
+def train_one_step(config, model, optimizer, scheduler, scaler, batch, device,
+                   flow_vqvae: Optional[torch.nn.Module] = None,
+                   background_id: Optional[int] = None):
     model.train()
 
     # --- Preprocess data ---
     obs, action, gt_motion = process_batch(
-        batch, config.model.obs_encoder.num_frames, config.model.action_len, config.model.noise_pred_net.use_quantized_of, device,flow_vqvae
+        batch, config.model.obs_encoder.num_frames, config.model.action_len,
+        config.model.noise_pred_net.use_quantized_of, device, flow_vqvae,
+        background_id=background_id,
     )
 
     # --- DP Training ---
@@ -303,12 +316,14 @@ def maybe_evaluate(
     action_normalizer=None,
     flow_vqvae: Optional[torch.nn.Module] = None,
     eval_model=None,
+    background_id: Optional[int] = None,
 ):
     """Evaluate if it's the correct step."""
     if step > 1:
         if step % config.eval_every == 0 or step == (config.num_steps - 1):
             target_model = eval_model if eval_model is not None else model
-            stats = eval_one_epoch(config, loader, device, target_model, action_normalizer,flow_vqvae)
+            stats = eval_one_epoch(config, loader, device, target_model, action_normalizer,
+                                   flow_vqvae, background_id=background_id)
             if is_main_process():
                 wandb.log({"global_step": step, **{f"eval/{k}": v for k, v in stats.items()}})
                 print(f"Step {step} action mse: {stats['action_mse']:.4f}")
@@ -388,12 +403,7 @@ def train(rank, world_size, config):
     )
 
     # Create model
-    flow_vqvae_result = build_frozen_flow_vqvae(config, device)
-    if flow_vqvae_result is not None:
-        #FIXME:这里需要保存num_spatial_tokens，是不是可以不指定这个值了
-        flow_vqvae, num_spatial_tokens = flow_vqvae_result
-    else:
-        flow_vqvae = None
+    flow_vqvae, num_spatial_tokens, background_id = build_frozen_flow_vqvae(config, device)
 
     model = instantiate(config.model).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), **config.optimizer)
@@ -438,19 +448,20 @@ def train(rank, world_size, config):
         for batch in train_loader:
             # --- Training step ---
             loss, info = train_one_step(
-                config, model, optimizer, scheduler, scaler, batch, device,flow_vqvae
+                config, model, optimizer, scheduler, scaler, batch, device,
+                flow_vqvae, background_id=background_id,
             )
             update_ema_model(ema_model, model, config.ema_decay)
 
             # --- Logging ---
             if is_main_process():
-                # pbar.set_description(f"step: {step}, loss: {loss['loss']:.4f}")
                 pbar.set_description(f"step: {step}, loss: {loss['loss']:.4f},action_loss: {loss['action_loss']:.4f},motion_loss: {loss['motion_loss']:.4f}")
                 wandb.log({"global_step": step, **{f"train/{k}": v for k, v in info.items()}})
 
             # --- Evaluate if needed ---
             maybe_evaluate(
-                config, step, model, val_loader, device, train_set.action_normalizer, eval_model=ema_model
+                config, step, model, val_loader, device, train_set.action_normalizer,
+                flow_vqvae, eval_model=ema_model, background_id=background_id,
             )
 
             # --- Save checkpoint if needed ---

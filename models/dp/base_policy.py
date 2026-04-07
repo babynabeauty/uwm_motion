@@ -130,10 +130,51 @@ class DiffusionPolicy(nn.Module):
                     "Quantized optical-flow target shape mismatch: "
                     f"pred={pred_quantized_of_logits.shape[:2]}, gt={target_tokens.shape}."
                 )
+            
+
+            #FIXME 过滤背景方法1
+            # flat_logits = pred_quantized_of_logits.reshape(-1, pred_quantized_of_logits.shape[-1])
+            # flat_targets = target_tokens.reshape(-1)
+            # # ================= 核心修改：动态频率背景屏蔽 =================
+            # # 1. 统计当前 batch 中所有 ID 的出现频率
+            # unique_ids, counts = torch.unique(flat_targets, return_counts=True)
+            # sorted_counts, sort_indices = torch.sort(counts, descending=True)
+            # total_tokens = flat_targets.numel()
+            # dynamic_bg_ids = []
+            # # 2. 自动揪出背景 ID：假设凡是单次出现频率超过 15% 的 token，都是背景块
+            # # (在 16x16=256 的网格里，15% 意味着占据了将近 40 个格子，绝对是背景)
+            # for i in range(len(sorted_counts)):
+            #     freq = sorted_counts[i] / total_tokens
+            #     if freq > 0.15:  # 频率阈值，可根据实际情况微调
+            #         dynamic_bg_ids.append(unique_ids[sort_indices[i]].item())
+            
+            # # 3. 生成 Mask (True 表示有效动作，False 表示被屏蔽的背景)
+            # if len(dynamic_bg_ids) > 0:
+            #     valid_mask = ~torch.isin(flat_targets, torch.tensor(dynamic_bg_ids, device=flat_targets.device))
+            #     valid_logits = flat_logits[valid_mask]
+            #     valid_targets = flat_targets[valid_mask]
+            # else:
+            #     valid_logits = flat_logits
+            #     valid_targets = flat_targets
+                
+            # # 4. 计算最终的 Loss
+            # if valid_logits.shape[0] > 0:
+            #     motion_loss = F.cross_entropy(valid_logits, valid_targets)
+            # else:
+            #     # 极端情况防护：如果全是背景
+            #     motion_loss = torch.tensor(0.0, device=action.device)
+
+            # FIXME 过滤背景方法2
             motion_loss = F.cross_entropy(
                 pred_quantized_of_logits.reshape(-1, pred_quantized_of_logits.shape[-1]),
                 target_tokens.reshape(-1),
+                ignore_index=-1,
             )
+
+            # motion_loss = F.cross_entropy(
+            #     pred_quantized_of_logits.reshape(-1, pred_quantized_of_logits.shape[-1]),
+            #     target_tokens.reshape(-1),
+            # )
         elif pred_motion_feats is not None and gt_motion is not None:
             if pred_motion_feats.shape != gt_motion.shape:
                 raise ValueError(
