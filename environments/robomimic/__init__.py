@@ -1,10 +1,17 @@
 import os
 
-from .wrappers import RoboMimicEnvWrapper, LIBEROEnvWrapper
+from .wrappers import RoboMimicEnvWrapper, LIBEROEnvWrapper, RoboCasaEnvWrapper
 import sys
+
 libero_path = "/data/workspace/zhangshiqi/LIBERO"
 if libero_path not in sys.path:
     sys.path.append(libero_path)
+
+_robocasa_root = os.environ.get("ROBOCASA_ROOT", "/data/workspace/zhangshiqi/robocasa")
+if _robocasa_root not in sys.path and os.path.isdir(
+    os.path.join(_robocasa_root, "robocasa")
+):
+    sys.path.insert(0, _robocasa_root)
 
 def make_robomimic_env(
     dataset_name,
@@ -99,6 +106,68 @@ def make_robomimic_env(
         obs_keys = list(shape_meta["obs"].keys())
         env = LIBEROEnvWrapper(
             env, obs_keys, obs_horizon, max_episode_length, record=record
+        )
+    elif "robocasa" in dataset_name:
+        from robocasa.utils.robomimic.robomimic_env_wrapper import EnvRobocasa
+        from robocasa.utils.robomimic.robomimic_dataset_utils import (
+            get_env_metadata_from_dataset as _rc_get_env_meta,
+        )
+        import robocasa.utils.robomimic.robomimic_obs_utils as ObsUtils
+
+        rgb_keys = [k for k, v in shape_meta["obs"].items() if v["type"] == "rgb"]
+        low_dim_keys = [
+            k for k, v in shape_meta["obs"].items() if v["type"] == "low_dim"
+        ]
+        ObsUtils.initialize_obs_utils_with_obs_specs(
+            {"obs": {"rgb": rgb_keys, "low_dim": low_dim_keys}}
+        )
+
+        cam_names = [k.replace("_image", "") for k in rgb_keys]
+        cam_h, cam_w = shape_meta["obs"][rgb_keys[0]]["shape"][:2]
+
+        raw_meta = _rc_get_env_meta(dataset_path=dataset_path)
+        if isinstance(raw_meta, dict) and "env_kwargs" in raw_meta:
+            env_name = raw_meta["env_name"]
+            env_kwargs = dict(raw_meta["env_kwargs"])
+        else:
+            env_kwargs = dict(raw_meta)
+            env_name = env_kwargs.pop("env_name", None)
+            if env_name is None:
+                raise ValueError(
+                    "Robocasa HDF5 data.attrs['env_args'] must contain env_name "
+                    f"(keys present: {list(env_kwargs.keys())[:30]})"
+                )
+
+        env_kwargs.pop("env_name", None)
+
+        if render_gpu_id is not None:
+            env_kwargs["render_gpu_device_id"] = render_gpu_id
+        elif os.environ.get("CUDA_VISIBLE_DEVICES", None):
+            env_kwargs.setdefault(
+                "render_gpu_device_id",
+                int(os.environ["CUDA_VISIBLE_DEVICES"].split(",")[0]),
+            )
+
+        env_kwargs.setdefault("camera_names", cam_names)
+        env_kwargs.setdefault("camera_heights", cam_h)
+        env_kwargs.setdefault("camera_widths", cam_w)
+
+        env = EnvRobocasa(
+            env_name=env_name,
+            render=False,
+            render_offscreen=True,
+            use_image_obs=True,
+            postprocess_visual_obs=False,
+            **env_kwargs,
+        )
+        obs_keys = list(shape_meta["obs"].keys())
+        env = RoboCasaEnvWrapper(
+            env,
+            obs_keys,
+            obs_horizon,
+            max_episode_length,
+            policy_action_dim=shape_meta["action"]["shape"][0],
+            record=record,
         )
     else:
         raise NotImplementedError(f"Unsupported environment: {dataset_name}")

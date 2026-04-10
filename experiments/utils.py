@@ -140,3 +140,62 @@ def get_libero_instruction(hdf5_path):
     filename = os.path.basename(hdf5_path)
     # 优先匹配全名，匹配不到则返回默认
     return LIBERO10_INFO.get(filename, "robot complete the task")
+
+
+def _instruction_from_robocasa_hdf5(hdf5_path):
+    import h5py
+    import json
+
+    def _loads_attr(raw):
+        if raw is None:
+            return None
+        if isinstance(raw, (bytes, bytearray)):
+            s = raw.decode("utf-8")
+        else:
+            s = str(raw)
+        return json.loads(s)
+
+    default = "robot complete the task"
+    try:
+        with h5py.File(hdf5_path, "r") as f:
+            if "data" not in f:
+                return default
+            data = f["data"]
+            env_raw = data.attrs.get("env_args")
+            if env_raw is not None:
+                try:
+                    env_args = _loads_attr(env_raw)
+                    if isinstance(env_args, dict):
+                        for k in ("lang", "language", "instruction", "task_language"):
+                            v = env_args.get(k)
+                            if v:
+                                return str(v)
+                except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
+                    pass
+            for k in sorted(data.keys()):
+                if not k.startswith("demo_"):
+                    continue
+                demo = data[k]
+                em = demo.attrs.get("ep_meta")
+                if em is None:
+                    continue
+                try:
+                    ep = _loads_attr(em)
+                    if isinstance(ep, dict):
+                        for key in ("lang", "language", "instruction"):
+                            v = ep.get(key)
+                            if v:
+                                return str(v)
+                except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
+                    pass
+                break
+    except (OSError, KeyError):
+        pass
+    return default
+
+
+def get_rollout_instruction(dataset_name, hdf5_path):
+    """Language string for rollout CLIP tokenization (LIBERO / Robocasa / fallback)."""
+    if dataset_name and "robocasa" in dataset_name:
+        return _instruction_from_robocasa_hdf5(hdf5_path)
+    return get_libero_instruction(hdf5_path)

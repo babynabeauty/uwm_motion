@@ -28,7 +28,7 @@ epoch=200
 NUM_TOKEN=256
 # setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size256_best_EMA.log 2>&1 &
 PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq/output"
-EXP_ID="debug"
+EXP_ID="robocasa_OpenStandMixerHead"
 # EXP_ID="libero_10_stride8_baseline"
 # EXP_ID="libero_10_stride8_of_EMA"
 # EXP_ID="libero_10_stride${action_len}_size${codebook_size}_best_EMA"
@@ -42,10 +42,10 @@ LR=2e-4
 ROLLOUT=10
 RESUME=False
 
-CUDA_VISIBLE_DEVICES=8 python experiments/dp/train_robomimic.py \
+CUDA_VISIBLE_DEVICES=8,9 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
     exp_id=$EXP_ID \
-    model.noise_pred_net.use_motion_token=Fale \
+    model.noise_pred_net.use_motion_token=False \
     model.noise_pred_net.motion_mask=False \
     model.mixture=0 \
     model.lambda_motion=0.05 \
@@ -56,11 +56,11 @@ CUDA_VISIBLE_DEVICES=8 python experiments/dp/train_robomimic.py \
     model.noise_pred_net.num_flow_tokens=$NUM_TOKEN \
     num_frames=9 \
     model.action_len=8 \
-    eval_every=1000 \
-    save_every=1000 \
-    rollout_every=1000 \
+    eval_every=5000 \
+    save_every=5000 \
+    rollout_every=5000 \
     num_rollouts=$ROLLOUT \
-    num_steps=15000 \
+    num_steps=150000 \
     batch_size=$BS \
     optimizer.lr=$LR \
     dataset=robocasa_OpenStandMixerHead \

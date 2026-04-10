@@ -1,16 +1,39 @@
+import os
+import numpy as np
 import zarr
-import ipdb
+import matplotlib.pyplot as plt
 
-root = "/data/shared_workspace/wangshaoxuan/libero/datasets/libero_90"
-z1 = zarr.open(f"{root}/buffer.zarr", mode="r")
-z2 = zarr.open(f"{root}/buffer_224.zarr", mode="r")
-ipdb.set_trace()
-z3 = zarr.open("/data/shared_workspace/zhangshiqi/dataset/libero/datasets/libero_10/libero_10.zarr", mode="r")
-# 需要访问 data 下的 obs.agentview_rgb 数组
-arr1 = z1["data"]["obs.agentview_rgb"]
-arr2 = z2["data"]["obs.agentview_rgb"]
-arr3 = z3['data']["obs.agentview_rgb"]
+# 你的 zarr 路径（按需改）
+zarr_path = "/data/shared_workspace/zhangshiqi/dataset/robocasa/zarr/OpenStandMixerHead.zarr"
 
-print(arr1.shape)  # 如 (N, H, W, 3)
-print(arr2.shape)  # 如 (N, 224, 224, 3)
-print(arr3.shape)
+# 打开 zarr
+z3 = zarr.open(zarr_path, mode="r")
+
+# 读取 arr3
+arr3 = z3["data"]["obs.robot0_agentview_left_image"]
+print("arr3 shape:", arr3.shape, "dtype:", arr3.dtype)
+
+# 可视化第 0 帧（可改 index）
+idx = 100
+img = np.asarray(arr3[idx])
+
+# 若通道顺序是 CHW，转成 HWC
+if img.ndim == 3 and img.shape[0] in (1, 3, 4) and img.shape[-1] not in (3, 4):
+    img = np.transpose(img, (1, 2, 0))
+
+# 保存图片
+save_path = "/data/workspace/zhangshiqi/uwm_motion/tools/arr3_robot0_agentview_left_image_idx0.png"
+os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+plt.figure(figsize=(6, 6))
+if img.ndim == 2:
+    plt.imshow(img, cmap="gray")
+else:
+    plt.imshow(img)
+plt.title(f"obs.robot0_agentview_left_image[{idx}]")
+plt.axis("off")
+plt.tight_layout()
+plt.savefig(save_path, dpi=150)
+plt.close()
+
+print("saved to:", save_path)

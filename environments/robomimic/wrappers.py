@@ -156,3 +156,86 @@ class LIBEROEnvWrapper(RoboMimicEnvWrapper):
             camera_name="frontview",
         )
         return img[::-1]
+
+
+class RoboCasaEnvWrapper(RoboMimicEnvWrapper):
+    """Wrap robocasa EnvRobocasa for DP rollout; align policy action dim with sim."""
+
+    def __init__(
+        self,
+        env,
+        obs_keys,
+        obs_horizon,
+        max_episode_length,
+        policy_action_dim,
+        record=False,
+        render_size=(224, 224),
+    ):
+        super().__init__(
+            env,
+            obs_keys,
+            obs_horizon,
+            max_episode_length,
+            record=record,
+            render_size=render_size,
+        )
+        self.policy_action_dim = int(policy_action_dim)
+
+    def _pad_action(self, action):
+        a = np.asarray(action, dtype=np.float32).reshape(-1)
+        d_pol = self.policy_action_dim
+        d_env = self.env.action_dimension
+        if a.shape[0] == d_env:
+            return a
+        if a.shape[0] == d_pol and d_pol < d_env:
+            out = np.zeros(d_env, dtype=np.float32)
+            out[:d_pol] = a
+            return out
+        if a.shape[0] > d_env:
+            return a[:d_env]
+        raise ValueError(
+            f"Action dim {a.shape[0]} incompatible with policy_dim={d_pol}, env_dim={d_env}"
+        )
+
+    def _is_success(self):
+        s = self.env.is_success()
+        if isinstance(s, dict):
+            return bool(s.get("task", False))
+        return bool(s)
+
+    def step(self, actions):
+        total_reward = 0
+        for action in actions:
+            a = self._pad_action(action)
+            obs, reward, done, info = self.env.step(a)
+            total_reward += reward
+            self.obs_buffer.append(obs)
+            if self.record:
+                self.video_buffer.append(self.render())
+            info["success"] = self._is_success()
+            done = done or info["success"]
+            self._elapsed_steps += 1
+            if self._elapsed_steps >= self._max_episode_length:
+                info["truncated"] = not done
+                done = True
+            if done:
+                break
+        return self._get_obs(), total_reward, done, info
+
+    def render(self):
+        cam = None
+        if hasattr(self.env, "_init_kwargs"):
+            cams = self.env._init_kwargs.get("camera_names")
+            if cams:
+                cam = cams[0]
+        return self.env.render(
+            mode="rgb_array",
+            height=self.render_size[1],
+            width=self.render_size[0],
+            camera_name=cam,
+        )
+
+    def close(self):
+        inner = getattr(self.env, "env", self.env)
+        if hasattr(inner, "close"):
+            inner.close()

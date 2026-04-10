@@ -32,7 +32,13 @@ from experiments.dp.train import (
     init_ema_model,
     update_ema_model,
 )
-from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process, get_libero_instruction
+from experiments.utils import (
+    set_seed,
+    init_wandb,
+    init_distributed,
+    is_main_process,
+    get_rollout_instruction,
+)
 
 _CLIP_TOKENIZER = None
 
@@ -47,6 +53,7 @@ def _get_tokenizer():
 
 
 def collect_rollout(config, model, device, rank=0, world_size=1):
+    # import ipdb;ipdb.set_trace()
     model.eval()
     model = getattr(model, "module", model)
 
@@ -66,7 +73,7 @@ def collect_rollout(config, model, device, rank=0, world_size=1):
 
     for path in my_paths:
         task_name = os.path.basename(path).replace(".hdf5", "")
-        instruction = get_libero_instruction(path)
+        instruction = get_rollout_instruction(config.dataset.name, path)
 
         tokens = tokenizer(
             instruction, padding='max_length', max_length=MAX_TEXT_LEN,

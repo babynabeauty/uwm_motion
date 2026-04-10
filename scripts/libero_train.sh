@@ -44,7 +44,7 @@ RESUME=False
 PRETRAIN_CKPT="/data/workspace/zhangshiqi/uwm_motion/bc_finetune/dp/libero_90/libero_10_stride8_pretrain_no_vqvae/0/models_step100000.pt"
 OPTICAL_FLOW_MASK=True
 
-CUDA_VISIBLE_DEVICES=6,7 python experiments/dp/train_robomimic.py \
+CUDA_VISIBLE_DEVICES=5 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
     exp_id=$EXP_ID \
     model.noise_pred_net.use_motion_token=False \
@@ -65,7 +65,7 @@ CUDA_VISIBLE_DEVICES=6,7 python experiments/dp/train_robomimic.py \
     num_steps=150000 \
     batch_size=$BS \
     optimizer.lr=$LR \
-    dataset=libero_10 \
+    dataset=robocasa_18 \
     model.obs_encoder.use_language=True \
     model.obs_encoder.imagenet_norm=False \
     resume=$RESUME \

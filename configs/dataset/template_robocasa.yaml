@@ -1,0 +1,17 @@
+_target_: datasets.robomimic.make_robomimic_dataset
+name: robocasa_template
+hdf5_path_globs: /data/shared_workspace/zhangshiqi/dataset/robocasa/hdf5/placeholder.hdf5
+buffer_path: /data/shared_workspace/zhangshiqi/dataset/robocasa/zarr/placeholder.zarr
+shape_meta:
+  obs:
+    robot0_agentview_left_image: &cam
+      shape: [128, 128, 3]
+      type: rgb
+    robot0_agentview_right_image: *cam
+    robot0_eye_in_hand_image: *cam
+  action:
+    shape: [7]
+seq_len: ${num_frames}
+val_ratio: 0.05
+subsample_ratio: 1.0
+flip_rgb: False

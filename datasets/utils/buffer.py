@@ -91,13 +91,43 @@ class CompressedTrajectoryBuffer:
         if self.restored:
             print(f"Restoring buffer from {storage_path}")
             assert "episode_ends" in self.meta
+            assert len(self.data) > 0, "Restored buffer has no data arrays"
+
+            lengths = {self.data[key].shape[0] for key in self.data}
+            assert len(lengths) == 1, "Inconsistent data lengths in the buffer"
+            self.capacity = lengths.pop()
+
+            # New fields in metadata (e.g. optical_flow) may be missing on old zarr; add arrays filled with 0.
+            with self.lock:
+                for key, value in metadata.items():
+                    if key in self.data:
+                        continue
+                    shape = (self.capacity,) + tuple(value["shape"])
+                    dtype = value["dtype"]
+                    if dtype == np.uint8:
+                        chunks = (1,) + shape[1:]
+                        compressor = numcodecs.Blosc(
+                            cname="lz4", clevel=5, shuffle=numcodecs.Blosc.NOSHUFFLE
+                        )
+                    else:
+                        chunks = get_optimal_chunks(shape, dtype)
+                        compressor = numcodecs.Blosc(
+                            cname="lz4", clevel=0, shuffle=numcodecs.Blosc.NOSHUFFLE
+                        )
+                    self.data.zeros(
+                        name=key,
+                        shape=shape,
+                        chunks=chunks,
+                        dtype=dtype,
+                        compressor=compressor,
+                        object_codec=numcodecs.Pickle(),
+                    )
+
             assert all(key in self.data for key in metadata)
             assert all(
                 self.data[key].shape[1:] == value["shape"]
                 for key, value in metadata.items()
             )
-
-            # Check that all data have the same length and restore capacity
             lengths = {self.data[key].shape[0] for key in self.data}
             assert len(lengths) == 1, "Inconsistent data lengths in the buffer"
             self.capacity = lengths.pop()
