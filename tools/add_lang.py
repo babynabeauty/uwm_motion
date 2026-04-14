@@ -1,111 +1,91 @@
-import os 
-import h5py
-import re
+import json
+import os
+
 import numpy as np
 import zarr
-from numcodecs import VLenUTF8, VLenArray
-from datasets.utils.file_utils import glob_all
-from datasets.utils.buffer import CompressedTrajectoryBuffer
+from numcodecs import VLenArray
+
 from models.common.language import CLIPTextEncoder
-import ipdb
 
-def get_task_name_from_path(hdf5_path: str) -> str: 
-    hdf5_path = hdf5_path.split("/")[-1]
-    task = re.sub(r'^[A-Z_0-9]+_', '', hdf5_path)
-    task = re.sub(r'_demo.*$', '', task)
-    task = task.replace('_', ' ')
-    return task
 
-def create_buffer(buffer_path: str): 
-    _image_shapes = {
-        "agentview_rgb": (128, 128, 3), 
-        "eye_in_hand_rgb": (128, 128, 3)
-    }
-    _lowdim_shapes = {}
-    _action_shape = (7,)
-    metadata = {}
-    for key, shape in _image_shapes.items():
-        metadata[f"obs.{key}"] = {"shape": shape, "dtype": np.uint8}
-    for key, shape in _lowdim_shapes.items():
-        metadata[f"obs.{key}"] = {"shape": shape, "dtype": np.float32}
-    metadata["action"] = {"shape": _action_shape, "dtype": np.float32}
-    buffer = CompressedTrajectoryBuffer(
-            storage_path=buffer_path,
-            metadata=metadata,
-    )
-    return buffer
+def load_task_items(task_list_file: str):
+    with open(task_list_file, "r") as f:
+        data = json.load(f)
+    items = []
+    for item in data.get("items", []):
+        if not item.get("enabled", True):
+            continue
+        task_name = str(item.get("task", "")).strip()
+        zarr_path = str(item.get("zarr", "")).strip()
+        if not task_name or not zarr_path:
+            continue
+        items.append(
+            {
+                "task": task_name.replace("_", " "),
+                "dataset": str(item.get("dataset", "")).strip(),
+                "zarr": zarr_path,
+            }
+        )
+    return items
 
-if __name__=="__main__": 
-    # 1. 路径设置
-    buffer_path = "/data/shared_workspace/zhangshiqi/dataset/libero/datasets/libero_10/libero_10.zarr"
-    hdf5_path_globs = "/data/shared_workspace/zhangshiqi/dataset/libero/datasets/libero_10/*.hdf5"
-    hdf5_paths = glob_all(hdf5_path_globs)
 
-    # ... 任务名称提取部分保持不变 ...
-    # ipdb.set_trace()
-    task_len2task_name = {}
-    for hdf5_path in hdf5_paths: 
-        task_name = get_task_name_from_path(hdf5_path)
-        task_len = 0
-        with h5py.File(hdf5_path) as f:
-            demos = f["data"]
-            for i in range(len(demos)):
-                demo = demos[f"demo_{i}"]
-                task_len += demo["actions"].shape[0]
-        task_len2task_name[task_len] = task_name
-
-    # 2. 以读写模式打开原始 Zarr
-    # mode='a' 表示 read/write，如果不存在则创建（这里显然已存在）
-    root = zarr.open(buffer_path, mode='a')
+def write_lang_to_single_zarr(zarr_path: str, task_name: str, text_encoder: CLIPTextEncoder):
+    root = zarr.open(zarr_path, mode="a")
     meta = root.require_group("meta")
-    
-    episode_ends = meta["episode_ends"][:]
-    episode_lens = np.zeros((len(episode_ends)))
-    episode_lens[1:] = episode_ends[1:] - episode_ends[:-1]
-    episode_lens[0] = episode_ends[0]
-    task_lens = episode_lens.reshape(-1, 50).sum(axis=1).tolist()
-    task_lens = [int(d) for d in task_lens]
+    if "episode_ends" not in meta:
+        raise KeyError(f"Missing meta/episode_ends in {zarr_path}")
 
-    # 3. 在原始 meta 中创建 Dataset
-    # 使用 require_dataset 可以防止重复创建报错，同时也支持覆盖
-    if "input_ids" in meta:
-        print("input_ids already exists, will overwrite.")
-    
+    num_episodes = int(len(meta["episode_ends"]))
+    if num_episodes == 0:
+        print(f"[SKIP] {zarr_path}: no episodes.")
+        return 0
+
     input_ids_ds = meta.require_dataset(
         name="input_ids",
-        shape=(len(episode_ends),),
+        shape=(num_episodes,),
         dtype=object,
         object_codec=VLenArray(np.int64),
     )
-    
     attention_mask_ds = meta.require_dataset(
         name="attention_mask",
-        shape=(len(episode_ends),),
+        shape=(num_episodes,),
         dtype=object,
         object_codec=VLenArray(np.int64),
     )
 
-    # 4. 编码并直接写入
-    text_encoder = CLIPTextEncoder(embed_dim=768)
-    max_shape = 0
-    # ipdb.set_trace()
-    for i in range(len(task_lens)):
-        task_name = task_len2task_name[task_lens[i]]
-        print(f"Processing Task {i}: {task_name}") 
-        
-        # 提取编码（在循环外做一次编码，避免内部重复 50 次同样的计算）
-        input_ids, attention_mask = text_encoder.encode(task_name)
-        ids_1d = input_ids.detach().cpu().numpy().reshape(-1).astype(np.int64)
-        mask_1d = attention_mask.detach().cpu().numpy().reshape(-1).astype(np.int64)
-        
-        for j in range(50): 
-            idx = i * 50 + j
-            input_ids_ds[idx] = ids_1d
-            attention_mask_ds[idx] = mask_1d
-            
-            if ids_1d.shape[0] > max_shape:
-                max_shape = ids_1d.shape[0]
-        
-        print("Current max_shape:", max_shape)
+    input_ids, attention_mask = text_encoder.encode(task_name)
+    ids_1d = input_ids.detach().cpu().numpy().reshape(-1).astype(np.int64)
+    mask_1d = attention_mask.detach().cpu().numpy().reshape(-1).astype(np.int64)
 
-    print("Finished updating original zarr.")
+    for i in range(num_episodes):
+        input_ids_ds[i] = ids_1d
+        attention_mask_ds[i] = mask_1d
+    return num_episodes
+
+
+if __name__ == "__main__":
+    task_list_file = os.environ.get(
+        "TASK_LIST_FILE",
+        "/data/workspace/zhangshiqi/uwm_motion/configs/task_lists/robocasa_atomic_files.json",
+    )
+    task_items = load_task_items(task_list_file)
+    if not task_items:
+        raise RuntimeError(f"No enabled task items found in {task_list_file}")
+
+    text_encoder = CLIPTextEncoder(embed_dim=768)
+    total_eps = 0
+    for idx, item in enumerate(task_items):
+        task_name = item["task"]
+        dataset_name = item["dataset"]
+        zarr_path = item["zarr"]
+        if not os.path.exists(zarr_path):
+            print(f"[SKIP] {dataset_name}: zarr not found: {zarr_path}")
+            continue
+        try:
+            n = write_lang_to_single_zarr(zarr_path, task_name, text_encoder)
+            total_eps += n
+            print(f"[OK] {idx + 1}/{len(task_items)} {dataset_name}: wrote {n} episodes")
+        except Exception as e:
+            print(f"[ERR] {dataset_name}: {e}")
+
+    print(f"Finished. Total episodes updated: {total_eps}")

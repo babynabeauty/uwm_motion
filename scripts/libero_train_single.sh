@@ -7,6 +7,7 @@
 # 后台示例：
 #   nohup bash scripts/libero_train_single.sh > robocasa_zarr.log 2>&1 &
 
+
 set -euo pipefail
 
 #_MV_no_MASK_no_mixture
@@ -16,33 +17,57 @@ set -euo pipefail
 #_baseline
 #libero_10_vqvae_stride8_voc256
 
-# ---------- 按需修改：任务列表（共 24 个；与 8 卡 × 每卡 3 进程对齐）----------
-DATASETS=(
-  robocasa_atomic_CoffeePressButton
-  robocasa_atomic_CoffeeServeMug
-  robocasa_atomic_CoffeeSetupMug
-  robocasa_atomic_CloseDoubleDoor
-  robocasa_atomic_CloseSingleDoor
-  robocasa_atomic_OpenDoubleDoor
-  robocasa_atomic_OpenSingleDoor
-  robocasa_atomic_CloseDrawer
-  robocasa_atomic_OpenDrawer
-  robocasa_atomic_TurnOffMicrowave
-  robocasa_atomic_TurnOnMicrowave
-  robocasa_atomic_PnPCabToCounter
-  robocasa_atomic_PnPCounterToCab
-  robocasa_atomic_PnPCounterToMicrowave
-  robocasa_atomic_PnPCounterToSink
-  robocasa_atomic_PnPCounterToStove
-  robocasa_atomic_PnPMicrowaveToCounter
-  robocasa_atomic_PnPSinkToCounter
-  robocasa_atomic_PnPStoveToCounter
-  robocasa_atomic_TurnOffSinkFaucet
-  robocasa_atomic_TurnOnSinkFaucet
-  robocasa_atomic_TurnSinkSpout
-  robocasa_atomic_TurnOffStove
-  robocasa_atomic_TurnOnStove
+# ---------- 任务列表配置 ----------
+# 集中配置文件（可在此文件里改 enabled / 路径，不必反复改脚本）：
+TASK_LIST_FILE="${TASK_LIST_FILE:-/data/workspace/zhangshiqi/uwm_motion/configs/task_lists/robocasa_atomic_files.json}"
+# 可选：只跑指定任务名（task 字段），逗号分隔，例如：TASKS_CSV="OpenDrawer,TurnOffStove"
+TASKS_CSV="${TASKS_CSV:-}"
+
+# bash scripts/libero_train_single.sh
+# # 只跑两个任务
+# TASKS_CSV="OpenDrawer,TurnOffStove" bash scripts/libero_train_single.sh
+# # 指定另一份清单
+# TASK_LIST_FILE=/path/to/my_tasks.json bash scripts/libero_train_single.sh
+
+
+if [[ ! -f "${TASK_LIST_FILE}" ]]; then
+  echo "任务清单不存在: ${TASK_LIST_FILE}" >&2
+  exit 1
+fi
+
+readarray -t DATASETS < <(
+  python3 - "${TASK_LIST_FILE}" "${TASKS_CSV}" <<'PY'
+import json
+import sys
+
+task_list_file = sys.argv[1]
+tasks_csv = sys.argv[2].strip()
+
+with open(task_list_file, "r") as f:
+    data = json.load(f)
+
+only = set()
+if tasks_csv:
+    only = {x.strip() for x in tasks_csv.split(",") if x.strip()}
+
+items = data.get("items", [])
+for it in items:
+    if not it.get("enabled", True):
+        continue
+    task = str(it.get("task", ""))
+    dataset = str(it.get("dataset", ""))
+    if not dataset:
+        continue
+    if only and task not in only and dataset not in only:
+        continue
+    print(dataset)
+PY
 )
+
+if [[ ${#DATASETS[@]} -eq 0 ]]; then
+  echo "没有可运行的 dataset（检查 TASK_LIST_FILE / enabled / TASKS_CSV）" >&2
+  exit 1
+fi
 
 # 每卡并行进程数（生成 zarr 阶段可开大；训练阶段易 OOM 时改为 1）
 JOBS_PER_GPU="${JOBS_PER_GPU:-3}"

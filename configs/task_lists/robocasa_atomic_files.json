@@ -1,0 +1,174 @@
+{
+  "version": "robocasa_v0.1_single_stage_atomic",
+  "description": "Central list for batch operations on RoboCasa atomic HDF5/Zarr pairs.",
+  "items": [
+    {
+      "task": "CloseDoubleDoor",
+      "dataset": "robocasa_atomic_CloseDoubleDoor",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_doors/CloseDoubleDoor/2024-04-29/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_doors/CloseDoubleDoor/2024-04-29/demo_gentex_im128_randcams.zarr",
+      "enabled": false
+    },
+    {
+      "task": "CloseDrawer",
+      "dataset": "robocasa_atomic_CloseDrawer",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_drawer/CloseDrawer/2024-04-30/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_drawer/CloseDrawer/2024-04-30/demo_gentex_im128_randcams.zarr",
+      "enabled": false
+    },
+    {
+      "task": "CloseSingleDoor",
+      "dataset": "robocasa_atomic_CloseSingleDoor",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_doors/CloseSingleDoor/2024-04-24/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_doors/CloseSingleDoor/2024-04-24/demo_gentex_im128_randcams.zarr",
+      "enabled": false
+    },
+    {
+      "task": "CoffeePressButton",
+      "dataset": "robocasa_atomic_CoffeePressButton",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_coffee/CoffeePressButton/2024-04-25/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_coffee/CoffeePressButton/2024-04-25/demo_gentex_im128_randcams.zarr",
+      "enabled": false
+    },
+    {
+      "task": "CoffeeServeMug",
+      "dataset": "robocasa_atomic_CoffeeServeMug",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_coffee/CoffeeServeMug/2024-05-01/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_coffee/CoffeeServeMug/2024-05-01/demo_gentex_im128_randcams.zarr",
+      "enabled": false
+    },
+    {
+      "task": "CoffeeSetupMug",
+      "dataset": "robocasa_atomic_CoffeeSetupMug",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_coffee/CoffeeSetupMug/2024-04-25/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_coffee/CoffeeSetupMug/2024-04-25/demo_gentex_im128_randcams.zarr",
+      "enabled": false
+    },
+    {
+      "task": "OpenDoubleDoor",
+      "dataset": "robocasa_atomic_OpenDoubleDoor",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_doors/OpenDoubleDoor/2024-04-26/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_doors/OpenDoubleDoor/2024-04-26/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "OpenDrawer",
+      "dataset": "robocasa_atomic_OpenDrawer",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_drawer/OpenDrawer/2024-05-03/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_drawer/OpenDrawer/2024-05-03/demo_gentex_im128_randcams.zarr",
+      "enabled": false
+    },
+    {
+      "task": "OpenSingleDoor",
+      "dataset": "robocasa_atomic_OpenSingleDoor",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_doors/OpenSingleDoor/2024-04-24/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_doors/OpenSingleDoor/2024-04-24/demo_gentex_im128_randcams.zarr",
+      "enabled": false
+    },
+    {
+      "task": "PnPCabToCounter",
+      "dataset": "robocasa_atomic_PnPCabToCounter",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPCabToCounter/2024-04-24/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPCabToCounter/2024-04-24/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "PnPCounterToCab",
+      "dataset": "robocasa_atomic_PnPCounterToCab",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPCounterToCab/2024-04-24/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPCounterToCab/2024-04-24/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "PnPCounterToMicrowave",
+      "dataset": "robocasa_atomic_PnPCounterToMicrowave",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPCounterToMicrowave/2024-04-27/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPCounterToMicrowave/2024-04-27/demo_gentex_im128_randcams.zarr",
+      "enabled": false
+    },
+    {
+      "task": "PnPCounterToSink",
+      "dataset": "robocasa_atomic_PnPCounterToSink",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPCounterToSink/2024-04-25/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPCounterToSink/2024-04-25/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "PnPCounterToStove",
+      "dataset": "robocasa_atomic_PnPCounterToStove",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPCounterToStove/2024-04-26/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPCounterToStove/2024-04-26/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "PnPMicrowaveToCounter",
+      "dataset": "robocasa_atomic_PnPMicrowaveToCounter",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPMicrowaveToCounter/2024-04-26/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPMicrowaveToCounter/2024-04-26/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "PnPSinkToCounter",
+      "dataset": "robocasa_atomic_PnPSinkToCounter",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPSinkToCounter/2024-04-26_2/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPSinkToCounter/2024-04-26_2/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "PnPStoveToCounter",
+      "dataset": "robocasa_atomic_PnPStoveToCounter",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPStoveToCounter/2024-05-01/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_pnp/PnPStoveToCounter/2024-05-01/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "TurnOffMicrowave",
+      "dataset": "robocasa_atomic_TurnOffMicrowave",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_microwave/TurnOffMicrowave/2024-04-25/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_microwave/TurnOffMicrowave/2024-04-25/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "TurnOffSinkFaucet",
+      "dataset": "robocasa_atomic_TurnOffSinkFaucet",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_sink/TurnOffSinkFaucet/2024-04-25/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_sink/TurnOffSinkFaucet/2024-04-25/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "TurnOffStove",
+      "dataset": "robocasa_atomic_TurnOffStove",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_stove/TurnOffStove/2024-05-02/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_stove/TurnOffStove/2024-05-02/demo_gentex_im128_randcams.zarr",
+      "enabled": false
+    },
+    {
+      "task": "TurnOnMicrowave",
+      "dataset": "robocasa_atomic_TurnOnMicrowave",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_microwave/TurnOnMicrowave/2024-04-25/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_microwave/TurnOnMicrowave/2024-04-25/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "TurnOnSinkFaucet",
+      "dataset": "robocasa_atomic_TurnOnSinkFaucet",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_sink/TurnOnSinkFaucet/2024-04-25/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_sink/TurnOnSinkFaucet/2024-04-25/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "TurnOnStove",
+      "dataset": "robocasa_atomic_TurnOnStove",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_stove/TurnOnStove/2024-05-02/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_stove/TurnOnStove/2024-05-02/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    },
+    {
+      "task": "TurnSinkSpout",
+      "dataset": "robocasa_atomic_TurnSinkSpout",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_sink/TurnSinkSpout/2024-04-29/demo_gentex_im128_randcams.hdf5",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/robocasa/v0.1/single_stage/kitchen_sink/TurnSinkSpout/2024-04-29/demo_gentex_im128_randcams.zarr",
+      "enabled": true
+    }
+  ]
+}

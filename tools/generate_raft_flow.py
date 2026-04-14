@@ -1,5 +1,6 @@
 import argparse
 import glob
+import json
 import math
 import os
 
@@ -13,6 +14,32 @@ from tqdm import tqdm
 
 from diffusers import AutoencoderKL
 from torchvision.models.optical_flow import Raft_Large_Weights, raft_large
+
+
+def load_task_list_items(task_list_file: str, tasks_csv: str = ""):
+    with open(task_list_file, "r") as f:
+        data = json.load(f)
+
+    selected = {x.strip() for x in tasks_csv.split(",") if x.strip()}
+    items = []
+    for item in data.get("items", []):
+        if not item.get("enabled", True):
+            continue
+        task = str(item.get("task", "")).strip()
+        dataset = str(item.get("dataset", "")).strip()
+        hdf5_path = str(item.get("hdf5", "")).strip()
+        zarr_path = str(item.get("zarr", "")).strip()
+        if selected and task not in selected and dataset not in selected:
+            continue
+        items.append(
+            {
+                "task": task,
+                "dataset": dataset,
+                "hdf5": hdf5_path,
+                "zarr": zarr_path,
+            }
+        )
+    return items
 
 
 def build_raft(device: torch.device):
@@ -405,6 +432,18 @@ def main():
         help="Path to existing .zarr (required when --mode=zarr)",
     )
     parser.add_argument(
+        "--task_list_file",
+        type=str,
+        default="",
+        help="Optional task-list JSON. In zarr mode, process enabled items' zarr paths.",
+    )
+    parser.add_argument(
+        "--tasks_csv",
+        type=str,
+        default="",
+        help="Optional comma-separated filter by task or dataset names when using --task_list_file",
+    )
+    parser.add_argument(
         "--image_key",
         type=str,
         default="obs.head_rgb",
@@ -503,11 +542,30 @@ def main():
         vae = None
 
     if args.mode == "zarr":
-        if not args.zarr_path or not os.path.isdir(args.zarr_path):
-            raise ValueError("--zarr_path must point to an existing .zarr directory")
         if args.frame_skip < 1:
             raise ValueError("--frame_skip must be >= 1")
-        append_optical_flow_n_to_zarr(args, model, transforms, vae, device)
+        if args.task_list_file:
+            if not os.path.isfile(args.task_list_file):
+                raise FileNotFoundError(f"task list file not found: {args.task_list_file}")
+            items = load_task_list_items(args.task_list_file, args.tasks_csv)
+            print(f"Loaded {len(items)} enabled task items from {args.task_list_file}")
+            for idx, item in enumerate(items):
+                zarr_path = item.get("zarr", "")
+                if not zarr_path or not os.path.isdir(zarr_path):
+                    print(
+                        f"[SKIP] {idx + 1}/{len(items)} {item.get('dataset','')}: invalid zarr path: {zarr_path}"
+                    )
+                    continue
+                args.zarr_path = zarr_path
+                print(f"[START] {idx + 1}/{len(items)} {item.get('dataset','')} -> {zarr_path}")
+                append_optical_flow_n_to_zarr(args, model, transforms, vae, device)
+                print(f"[DONE]  {idx + 1}/{len(items)} {item.get('dataset','')}")
+        else:
+            if not args.zarr_path or not os.path.isdir(args.zarr_path):
+                raise ValueError(
+                    "Either provide --zarr_path or set --task_list_file for batch zarr processing"
+                )
+            append_optical_flow_n_to_zarr(args, model, transforms, vae, device)
         return
 
     files = glob.glob(os.path.join(args.dataset_dir, "**/*.hdf5"), recursive=True)

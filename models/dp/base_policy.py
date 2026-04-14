@@ -47,7 +47,7 @@ class DiffusionPolicy(nn.Module):
             num_train_timesteps=num_train_steps,
             beta_schedule=beta_schedule,
             clip_sample=clip_sample,
-            prediction_type = "v_prediction",
+            # prediction_type = "v_prediction",
         )
 
     @torch.no_grad()
