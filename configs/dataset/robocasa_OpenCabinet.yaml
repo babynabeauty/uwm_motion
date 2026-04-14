@@ -1,6 +1,0 @@
-defaults:
-  - template_robocasa
-
-name: robocasa_OpenCabinet
-hdf5_path_globs: /data/shared_workspace/zhangshiqi/dataset/robocasa/hdf5/OpenCabinet.hdf5
-buffer_path: /data/shared_workspace/zhangshiqi/dataset/robocasa/zarr/OpenCabinet.zarr

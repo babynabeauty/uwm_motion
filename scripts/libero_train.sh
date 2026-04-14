@@ -5,6 +5,11 @@
 #_MV_Mask_3_mixture
 #_baseline
 #libero_10_vqvae_stride8_voc256
+
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate uwm  
+
+
 export PYTHONPATH=/data/workspace/zhangshiqi/uwm_motion:$PYTHONPATH
 export WANDB_API_KEY=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
 export WANDB_MODE=online
@@ -14,37 +19,45 @@ export WANDB_DIR=/data/workspace/zhangshiqi/uwm_motion/wandb
 # export TMP=/tmp
 # export TEMP=/tmp
 # mkdir -p "$WANDB_DIR" "$UWM_RUN_DIR_BASE" "$TMPDIR"
-
-# Remove incompatible legacy cuDNN path and prioritize PyTorch bundled CUDA libs.
 LD_LIBRARY_PATH_CLEAN="$(echo "${LD_LIBRARY_PATH:-}" | tr ':' '\n' | rg -v 'cudnn-8\.2\.1-cuda11\.3_0/lib' | paste -sd ':' -)"
 TORCH_CUDNN_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-packages/nvidia/cudnn/lib
 TORCH_CUBLAS_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-packages/nvidia/cublas/lib
 export LD_LIBRARY_PATH="${TORCH_CUDNN_LIB}:${TORCH_CUBLAS_LIB}:${LD_LIBRARY_PATH_CLEAN}"
+
+"""
+setsid nohup bash scripts/libero_train.sh \
+> /data/shared_workspace/zhangshiqi/uwm_motion_data/log/libero/libero_10_stride8_size256_df3_200_flow_matching_0411.log 2>&1 &
+"""
+
+"""
+setsid nohup bash scripts/libero_train.sh \
+> /data/shared_workspace/zhangshiqi/uwm_motion_data/log/libero/libero_10_stride8_baseline_0411.log 2>&1 &
+"""
+
 
 action_len=8
 codebook_size=64
 DF=3
 epoch=200
 NUM_TOKEN=256
-# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/libero_10_stride8_size256_df3_200_PRETRAIN_no_vqvae100000.log 2>&1 &
-PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq/output"
-# EXP_ID="libero_10_stride8_baseline"
+PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq/output/libero"
+# EXP_ID="libero_10_stride8_baseline_0411"
 # EXP_ID="debug"
-EXP_ID="libero_10_stride${action_len}_size${codebook_size}_df${DF}_${epoch}_ignore_background2"
+EXP_ID="libero_10_stride${action_len}_size${codebook_size}_df${DF}_${epoch}_flow_matching_0411"
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_best.pt"
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_epoch_${epoch}.pt"
 VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}_df${DF}/flow_vqvae_epoch_${epoch}.pt"
 # VQVAE_CKPT="None"
 USE_VQVAE=True
 BS=72
-LR=2e-4
+LR=1e-4
 ROLLOUT=10
-# 仅用 pretrain_checkpoint_path 开新跑、step 从 0 起：必须为 False（否则会去找当前 logdir 下的 models.pt）
 RESUME=False
-PRETRAIN_CKPT="/data/workspace/zhangshiqi/uwm_motion/bc_finetune/dp/libero_90/libero_10_stride8_pretrain_no_vqvae/0/models_step100000.pt"
 OPTICAL_FLOW_MASK=True
+DATASET=libero_10
+PRETRAIN_CKPT=None
 
-CUDA_VISIBLE_DEVICES=5 python experiments/dp/train_robomimic.py \
+CUDA_VISIBLE_DEVICES=6,7 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
     exp_id=$EXP_ID \
     model.noise_pred_net.use_motion_token=False \
@@ -54,9 +67,11 @@ CUDA_VISIBLE_DEVICES=5 python experiments/dp/train_robomimic.py \
     model.noise_pred_net.use_quantized_of=$USE_VQVAE \
     model.noise_pred_net.optical_flow_mask=$OPTICAL_FLOW_MASK \
     model.noise_pred_net.quantized_of_vqvae_ckpt_path=$VQVAE_CKPT \
-    model.noise_pred_net.quantized_of_vqvae_repo_path=/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/laq/laq \
+    model.noise_pred_net.quantized_of_vqvae_repo_path=/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq \
     model.noise_pred_net.num_flow_tokens=$NUM_TOKEN \
     num_frames=9 \
+    dataloader.num_workers=4 \
+    dataloader.prefetch_factor=2 \
     model.action_len=8 \
     eval_every=10000 \
     save_every=10000 \
@@ -65,12 +80,12 @@ CUDA_VISIBLE_DEVICES=5 python experiments/dp/train_robomimic.py \
     num_steps=150000 \
     batch_size=$BS \
     optimizer.lr=$LR \
-    dataset=robocasa_18 \
+    dataset=$DATASET \
     model.obs_encoder.use_language=True \
     model.obs_encoder.imagenet_norm=False \
     resume=$RESUME \
     model.obs_encoder.pretrained_weights=clip \
-    # pretrain_checkpoint_path=$PRETRAIN_CKPT \
+    # pretrain_checkpoint_path=$PRETRAIN_CKPT 
 
 
 

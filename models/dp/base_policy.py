@@ -47,6 +47,7 @@ class DiffusionPolicy(nn.Module):
             num_train_timesteps=num_train_steps,
             beta_schedule=beta_schedule,
             clip_sample=clip_sample,
+            prediction_type = "v_prediction",
         )
 
     @torch.no_grad()
@@ -165,16 +166,16 @@ class DiffusionPolicy(nn.Module):
             #     motion_loss = torch.tensor(0.0, device=action.device)
 
             # FIXME 过滤背景方法2
-            motion_loss = F.cross_entropy(
-                pred_quantized_of_logits.reshape(-1, pred_quantized_of_logits.shape[-1]),
-                target_tokens.reshape(-1),
-                ignore_index=-1,
-            )
-
             # motion_loss = F.cross_entropy(
             #     pred_quantized_of_logits.reshape(-1, pred_quantized_of_logits.shape[-1]),
             #     target_tokens.reshape(-1),
+            #     ignore_index=-1,
             # )
+
+            motion_loss = F.cross_entropy(
+                pred_quantized_of_logits.reshape(-1, pred_quantized_of_logits.shape[-1]),
+                target_tokens.reshape(-1),
+            )
         elif pred_motion_feats is not None and gt_motion is not None:
             if pred_motion_feats.shape != gt_motion.shape:
                 raise ValueError(

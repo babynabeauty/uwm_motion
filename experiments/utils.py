@@ -6,6 +6,7 @@ from datetime import timedelta
 import numpy as np
 import torch
 import torch.distributed as dist
+import torch.multiprocessing as mp
 import wandb
 from omegaconf import OmegaConf
 
@@ -59,6 +60,24 @@ def find_free_port():
         port = s.getsockname()[1]
         return str(port)
     
+
+def spawn_distributed_training(train_fn, config):
+    """Set up MASTER_PORT/MASTER_ADDR, validate GPU visibility, then mp.spawn."""
+    if "MASTER_PORT" not in os.environ:
+        os.environ["MASTER_PORT"] = find_free_port()
+    if "MASTER_ADDR" not in os.environ:
+        os.environ["MASTER_ADDR"] = "localhost"
+
+    world_size = torch.cuda.device_count()
+    if world_size < 1:
+        raise RuntimeError(
+            f"No CUDA devices visible (CUDA_VISIBLE_DEVICES="
+            f"{os.environ.get('CUDA_VISIBLE_DEVICES', '<unset>')}). "
+            f"Cannot start distributed training."
+        )
+
+    mp.spawn(train_fn, args=(world_size, config), nprocs=world_size, join=True)
+
 
 def init_distributed(rank, world_size):
     """Initialize distributed training and set visible device.

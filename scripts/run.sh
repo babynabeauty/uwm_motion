@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 1. 配置基础路径
-LOG_BASE_DIR="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/"
+LOG_BASE_DIR="/data/shared_workspace/zhangshiqi/uwm_motion_data/"
 mkdir -p "$LOG_BASE_DIR"
 
 # 2. 数据集列表

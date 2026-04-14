@@ -1,4 +1,4 @@
-# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_bowl_drawer/libero_bowl_drawer_RAFT_no_MASK_5_mixture_V2.log 2>&1 &
+# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_data/libero_bowl_drawer/libero_bowl_drawer_RAFT_no_MASK_5_mixture_V2.log 2>&1 &
 # setsid nohup bash scripts/libero_train_lerobot.sh > real_scoop_MV_no_MASK_no_mixture.log 2>&1 &
 
 #_MV_no_MASK_no_mixture

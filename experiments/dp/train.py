@@ -5,6 +5,7 @@ from experiments.runtime_env import bootstrap_non_root_runtime
 
 bootstrap_non_root_runtime()
 
+
 import hydra
 import torch
 import torch.nn as nn
@@ -20,8 +21,10 @@ from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm
 import sys
 from datasets.utils.loader import make_distributed_data_loader
-from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process
+from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process, spawn_distributed_training
 import ipdb
+
+
 """构建EMA模型"""
 def unwrap_model(model):
     return getattr(model, "module", model)
@@ -192,8 +195,8 @@ def process_batch(batch, obs_horizon, action_horizon, use_quantized_of, device,
             raise ValueError(f"Unsupported action length: {action_horizon}")
         gt_motion = extract_vq_indices_from_flow(flow, flow_vqvae)
         #FIXME:过滤背景方法2
-        if background_id is not None:
-            gt_motion[gt_motion == background_id] = -1
+        # if background_id is not None:
+        #     gt_motion[gt_motion == background_id] = -1
     elif "optical_flow_raft_latent" in batch:
         gt_motion = batch["optical_flow_raft_latent"][:, -action_horizon:].to(device)
     # Add language tokens to observations
@@ -398,8 +401,10 @@ def train(rank, world_size, config):
 
     # Create dataset
     train_set, val_set = instantiate(config.dataset)
+    dl_cfg = OmegaConf.to_container(config.dataloader, resolve=True) if hasattr(config, "dataloader") else {}
     train_loader, val_loader = make_distributed_data_loader(
-        train_set, val_set, config.batch_size, rank, world_size
+        train_set, val_set, config.batch_size, rank, world_size,
+        **dl_cfg,
     )
 
     # Create model
@@ -487,13 +492,9 @@ def train(rank, world_size, config):
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_dp.yaml")
 def main(config):
-    # Resolve hydra config
     OmegaConf.resolve(config)
-    # Spawn processes
-    world_size = torch.cuda.device_count()
-    mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    spawn_distributed_training(train, config)
     # train(0, 1, config)
-
 
 
 if __name__ == "__main__":

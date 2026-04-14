@@ -1,4 +1,6 @@
 import copy
+from typing import Optional
+
 import h5py
 import numpy as np
 import torch
@@ -9,6 +11,20 @@ from datasets.utils.buffer import CompressedTrajectoryBuffer
 from datasets.utils.file_utils import glob_all
 from datasets.utils.sampler import TrajectorySampler
 from datasets.utils.obs_utils import unflatten_obs
+
+
+def _sorted_demo_keys(demos_group: h5py.Group) -> list[str]:
+    """Robomimic/LIBERO often use demo_0..demo_{n-1}; RoboCasa exports may use demo_1..demo_n (no demo_0)."""
+    keys = [k for k in demos_group.keys() if isinstance(k, str) and k.startswith("demo_")]
+
+    def _key_order(k: str) -> tuple[int, str]:
+        suffix = k[len("demo_") :]
+        try:
+            return (0, int(suffix))
+        except ValueError:
+            return (1, suffix)
+
+    return sorted(keys, key=_key_order)
 
 
 class RobomimicDataset(Dataset):
@@ -22,10 +38,12 @@ class RobomimicDataset(Dataset):
         val_ratio: float = 0.0,
         subsample_ratio: float = 1.0,
         flip_rgb: bool = False,
+        action_slice: Optional[tuple[int, int]] = None,
     ):
         self.name = name
         self.seq_len = seq_len
         self.flip_rgb = flip_rgb
+        self._action_slice = action_slice
 
         # Parse observation and action shapes
         obs_shape_meta = shape_meta["obs"]
@@ -41,6 +59,13 @@ class RobomimicDataset(Dataset):
             else:
                 raise RuntimeError(f"Unsupported obs type: {obs_type}")
         self._action_shape = tuple(shape_meta["action"]["shape"])
+        if self._action_slice is not None:
+            lo, hi = self._action_slice
+            if hi - lo != self._action_shape[0]:
+                raise ValueError(
+                    f"action_slice [{lo}:{hi}] has width {hi - lo} but shape_meta action "
+                    f"expects {self._action_shape[0]}"
+                )
 
         # Compressed buffer to store episode data
         self.buffer = self._init_buffer(hdf5_path_globs, buffer_path)
@@ -76,6 +101,13 @@ class RobomimicDataset(Dataset):
         # Sampler to draw sequences from buffer
         self.sampler = TrajectorySampler(self.buffer, self.seq_len, self.train_mask)
 
+    def _slice_actions(self, actions: np.ndarray) -> np.ndarray:
+        out = np.asarray(actions, dtype=np.float32)
+        if self._action_slice is None:
+            return out
+        lo, hi = self._action_slice
+        return out[:, lo:hi]
+
     def _init_buffer(self, hdf5_path_globs, buffer_path):
         hdf5_paths = glob_all(hdf5_path_globs)
         # Create metadata
@@ -98,10 +130,11 @@ class RobomimicDataset(Dataset):
         for hdf5_path in hdf5_paths:
             with h5py.File(hdf5_path) as f:
                 demos = f["data"]
-                for i in range(len(demos)):
-                    demo = demos[f"demo_{i}"]
+                demo_keys = _sorted_demo_keys(demos)
+                for dk in demo_keys:
+                    demo = demos[dk]
                     capacity += demo["actions"].shape[0]
-                num_episodes += len(demos)
+                num_episodes += len(demo_keys)
 
         # Initialize buffer
         buffer = CompressedTrajectoryBuffer(
@@ -148,12 +181,13 @@ class RobomimicDataset(Dataset):
         for hdf5_path in hdf5_paths:
             with h5py.File(hdf5_path) as f:
                 demos = f["data"]
-                for i in range(len(demos)):
+                demo_keys = _sorted_demo_keys(demos)
+                for dk in demo_keys:
                     if global_idx < start_idx:
                         global_idx += 1
                         continue
                     try:
-                        demo = demos[f"demo_{i}"]
+                        demo = demos[dk]
                         episode = {}
                         for key in self._image_shapes.keys():
                             if self.flip_rgb:
@@ -162,7 +196,7 @@ class RobomimicDataset(Dataset):
                                 episode[f"obs.{key}"] = demo["obs"][key][:]
                         for key in self._lowdim_shapes.keys():
                             episode[f"obs.{key}"] = demo["obs"][key][:]
-                        episode["action"] = demo["actions"][:]
+                        episode["action"] = self._slice_actions(demo["actions"][:])
                         # episode["motion_vector"] = demo["motion_vectors"][:]
                         tlen = demo["actions"].shape[0]
                         if "optical_flow_raft_latent" in demo:
@@ -177,7 +211,7 @@ class RobomimicDataset(Dataset):
                         buffer.add_episode(episode)
                     except OSError as e:
                         failed_episodes += 1
-                        print(f"\nWarning: Failed to read demo_{i} from {hdf5_path}: {e}")
+                        print(f"\nWarning: Failed to read {dk} from {hdf5_path}: {e}")
                         print(f"Skipping this episode (total failed: {failed_episodes})...")
                     global_idx += 1
                     buffer.meta.attrs["demos_consumed"] = global_idx

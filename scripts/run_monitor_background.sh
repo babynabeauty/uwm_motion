@@ -22,7 +22,7 @@ if [[ ! -f "$MONITOR_SCRIPT" ]]; then
   exit 1
 fi
 
-DEFAULT_LOG="/data/shared_workspace/zhangshiqi/uwm_motion_rst_saving/libero_10/watcher_${MONITOR_NAME%.sh}.log"
+DEFAULT_LOG="/data/shared_workspace/zhangshiqi/uwm_motion_data/libero_10/watcher_${MONITOR_NAME%.sh}.log"
 WATCHER_LOG="${WATCHER_LOG:-$DEFAULT_LOG}"
 mkdir -p "$(dirname "$WATCHER_LOG")"
 

@@ -1,9 +1,9 @@
 # 只保存 raw flow（skip=8），不保存 latent（不加载 VAE）
 python tools/generate_raft_flow.py \
-    --mode zarr --zarr_path /data/shared_workspace/zhangshiqi/dataset/libero/datasets/libero_10/libero_10.zarr \
-    --frame_skip 16 \
+    --mode zarr --zarr_path /data/shared_workspace/zhangshiqi/dataset/robocasa/zarr/robocasa_18.zarr \
+    --frame_skip 8 \
     --no_save_optical_flow_raft_latent \
-    --image_key obs.agentview_rgb \
+    --image_key obs.robot0_agentview_left_image \
     --img_size 128 
     # --overwrite \
 

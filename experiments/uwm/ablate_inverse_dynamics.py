@@ -82,8 +82,10 @@ def train(rank, world_size, config):
 
     # Create dataset
     train_set, val_set = instantiate(config.dataset)
+    dl_cfg = OmegaConf.to_container(config.dataloader, resolve=True) if hasattr(config, "dataloader") else {}
     train_loader, val_loader = make_distributed_data_loader(
-        train_set, val_set, config.batch_size, rank, world_size
+        train_set, val_set, config.batch_size, rank, world_size,
+        **dl_cfg,
     )
 
     # Create model

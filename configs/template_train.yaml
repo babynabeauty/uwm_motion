@@ -29,3 +29,9 @@ optimizer:
 
 scheduler:
   name: "constant"
+
+dataloader:
+  num_workers: 8
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2

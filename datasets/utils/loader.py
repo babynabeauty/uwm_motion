@@ -12,6 +12,7 @@ def make_distributed_data_loader(
     pin_memory: bool = True,
     drop_last: bool = True,
     persistent_workers: bool = True,
+    prefetch_factor: int = 2,
 ):
     # Training sampler and loader
     train_sampler = DistributedSampler(
@@ -28,6 +29,7 @@ def make_distributed_data_loader(
         pin_memory=pin_memory,
         drop_last=drop_last,
         persistent_workers=persistent_workers,
+        prefetch_factor=prefetch_factor,
     )
 
     # Validation sampler and loader
@@ -45,6 +47,7 @@ def make_distributed_data_loader(
         pin_memory=pin_memory,
         drop_last=drop_last,
         persistent_workers=persistent_workers,
+        prefetch_factor=prefetch_factor,
     )
 
     return train_loader, val_loader

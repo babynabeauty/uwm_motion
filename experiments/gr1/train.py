@@ -13,7 +13,7 @@ from torchvision.utils import make_grid
 from tqdm import tqdm
 
 from datasets.utils.loader import make_distributed_data_loader
-from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process
+from experiments.utils import set_seed, init_wandb, init_distributed, is_main_process, spawn_distributed_training
 from experiments.uwm.train import (
     process_batch,
     train_one_step,
@@ -105,8 +105,10 @@ def train(rank, world_size, config):
 
     # Create dataset
     train_set, val_set = instantiate(config.dataset)
+    dl_cfg = OmegaConf.to_container(config.dataloader, resolve=True) if hasattr(config, "dataloader") else {}
     train_loader, val_loader = make_distributed_data_loader(
-        train_set, val_set, config.batch_size, rank, world_size
+        train_set, val_set, config.batch_size, rank, world_size,
+        **dl_cfg,
     )
 
     # Create model
@@ -189,11 +191,9 @@ def train(rank, world_size, config):
     version_base=None, config_path="../../configs", config_name="train_gr1.yaml"
 )
 def main(config):
-    # Resolve hydra config
     OmegaConf.resolve(config)
-    # Spawn processes
-    world_size = torch.cuda.device_count()
-    mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    spawn_distributed_training(train, config)
+    # train(0, 1, config)
 
 
 if __name__ == "__main__":

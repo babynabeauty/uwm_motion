@@ -19,7 +19,6 @@ from hydra.utils import instantiate
 from torch.nn.parallel import DistributedDataParallel
 from tqdm import trange, tqdm
 import ipdb
-from experiments.utils import find_free_port
 from datasets.utils.loader import make_distributed_data_loader
 from datasets.utils.file_utils import glob_all
 from environments.robomimic import make_robomimic_env
@@ -38,6 +37,7 @@ from experiments.utils import (
     init_distributed,
     is_main_process,
     get_rollout_instruction,
+    spawn_distributed_training,
 )
 
 _CLIP_TOKENIZER = None
@@ -177,8 +177,10 @@ def train(rank, world_size, config):
     # Create dataset
     # import ipdb;ipdb.set_trace()
     train_set, val_set = instantiate(config.dataset)
+    dl_cfg = OmegaConf.to_container(config.dataloader, resolve=True) if hasattr(config, "dataloader") else {}
     train_loader, val_loader = make_distributed_data_loader(
-        train_set, val_set, config.batch_size, rank, world_size
+        train_set, val_set, config.batch_size, rank, world_size,
+        **dl_cfg,
     )
     action_normalizer = getattr(train_set, "action_normalizer", None)
     if is_main_process():
@@ -281,17 +283,8 @@ def train(rank, world_size, config):
     config_name="train_dp_robomimic.yaml",
 )
 def main(config):
-    # Resolve hydra config
     OmegaConf.resolve(config)
-    # Spawn processes
-
-    if "MASTER_PORT" not in os.environ:
-        os.environ["MASTER_PORT"] = find_free_port()
-    if "MASTER_ADDR" not in os.environ:
-        os.environ["MASTER_ADDR"] = "localhost"
-        
-    world_size = torch.cuda.device_count()
-    mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    spawn_distributed_training(train, config)
     # train(0, 1, config)
 
 
