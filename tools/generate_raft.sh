@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 批量为 task-list 中 enabled 的 RoboCasa 任务生成 flow（默认只保存 raw flow，不保存 latent）。
+# 批量为 task-list 中 enabled 的 RoboTwin 任务生成 flow（默认只保存 raw flow，不保存 latent）。
 # 支持按 GPU 列表并行：任务均分到 N 张卡，每张卡 1 个进程。
 #
 # 用法：
 #   bash tools/generate_raft.sh
 #   GPUS_CSV="0,1,2,3" bash tools/generate_raft.sh
-#   TASKS_CSV="OpenDrawer,TurnOffStove" GPUS_CSV="4,5" bash tools/generate_raft.sh
+#   TASKS_CSV="adjust_bottle,turn_switch" GPUS_CSV="4,5" bash tools/generate_raft.sh
 #   OVERWRITE=1 bash tools/generate_raft.sh
 
-TASK_LIST_FILE="${TASK_LIST_FILE:-/data/workspace/zhangshiqi/uwm_motion/configs/task_lists/robocasa_atomic_files.json}"
+TASK_LIST_FILE="${TASK_LIST_FILE:-/data/workspace/zhangshiqi/uwm_motion/configs/task_lists/robotwin_files.json}"
 TASKS_CSV="${TASKS_CSV:-}"
 GPUS_CSV="${GPUS_CSV:-0}"
-IMG_KEY="${IMG_KEY:-obs.robot0_agentview_left_image}"
+IMG_KEY="${IMG_KEY:-obs.head_camera}"
 IMG_SIZE="${IMG_SIZE:-128}"
-FRAME_SKIP="${FRAME_SKIP:-8}"
+FRAME_SKIP="${FRAME_SKIP:-6}"
 OVERWRITE="${OVERWRITE:-0}"
-LOG_ROOT="${LOG_ROOT:-/data/shared_workspace/zhangshiqi/uwm_motion_data/log/raft_parallel}"
+LOG_ROOT="${LOG_ROOT:-/data/shared_workspace/zhangshiqi/uwm_motion_data/log/robotwin}"
 mkdir -p "${LOG_ROOT}"
 
 IFS=',' read -ra GPUS <<< "${GPUS_CSV// /}"

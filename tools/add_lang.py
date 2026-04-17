@@ -71,7 +71,7 @@ def write_lang_to_single_zarr(zarr_path: str, task_name: str, text_encoder: CLIP
 if __name__ == "__main__":
     task_list_file = os.environ.get(
         "TASK_LIST_FILE",
-        "/data/workspace/zhangshiqi/uwm_motion/configs/task_lists/robocasa_atomic_files.json",
+        "/data/workspace/zhangshiqi/uwm_motion/configs/task_lists/robotwin_files.json",
     )
     task_items = load_task_items(task_list_file)
     if not task_items:

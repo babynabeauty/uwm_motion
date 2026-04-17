@@ -188,12 +188,13 @@ def process_batch(batch, obs_horizon, action_horizon, use_quantized_of, device,
     
     gt_motion = None
     if use_quantized_of:
-        if action_horizon == 8:
-            flow = batch["optical_flow_8"][:,0:1].to(device, non_blocking=True)
-        elif action_horizon == 16:
-            flow = batch["optical_flow_16"][:,0:1].to(device, non_blocking=True)
-        else:
-            raise ValueError(f"Unsupported action length: {action_horizon}")
+        flow_key = f"optical_flow_{action_horizon}"
+        if flow_key not in batch:
+            raise KeyError(
+                f"Missing {flow_key} in batch. Generate it with FRAME_SKIP={action_horizon} "
+                "or set model.noise_pred_net.use_quantized_of=False."
+            )
+        flow = batch[flow_key][:, 0:1].to(device, non_blocking=True)
         gt_motion = extract_vq_indices_from_flow(flow, flow_vqvae)
         #FIXME:过滤背景方法2
         # if background_id is not None:

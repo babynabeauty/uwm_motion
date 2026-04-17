@@ -1,0 +1,506 @@
+{
+  "version": "robotwin_zarr_v1",
+  "description": "RoboTwin clean zarr task list for UWM-motion training and flow/language preprocessing. The hdf5 field points to the original RoboTwin episode directory.",
+  "items": [
+    {
+      "task": "adjust_bottle",
+      "dataset": "adjust_bottle-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/adjust_bottle/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/adjust_bottle-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "beat_block_hammer",
+      "dataset": "beat_block_hammer-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/beat_block_hammer/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/beat_block_hammer-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "blocks_ranking_rgb",
+      "dataset": "blocks_ranking_rgb-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/blocks_ranking_rgb/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/blocks_ranking_rgb-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "blocks_ranking_size",
+      "dataset": "blocks_ranking_size-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/blocks_ranking_size/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/blocks_ranking_size-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "click_alarmclock",
+      "dataset": "click_alarmclock-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/click_alarmclock/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/click_alarmclock-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "click_bell",
+      "dataset": "click_bell-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/click_bell/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/click_bell-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "dump_bin_bigbin",
+      "dataset": "dump_bin_bigbin-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/dump_bin_bigbin/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/dump_bin_bigbin-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "grab_roller",
+      "dataset": "grab_roller-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/grab_roller/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/grab_roller-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "handover_block",
+      "dataset": "handover_block-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/handover_block/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/handover_block-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "handover_mic",
+      "dataset": "handover_mic-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/handover_mic/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/handover_mic-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "hanging_mug",
+      "dataset": "hanging_mug-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/hanging_mug/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/hanging_mug-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "lift_pot",
+      "dataset": "lift_pot-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/lift_pot/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/lift_pot-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "move_can_pot",
+      "dataset": "move_can_pot-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/move_can_pot/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/move_can_pot-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "move_pillbottle_pad",
+      "dataset": "move_pillbottle_pad-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/move_pillbottle_pad/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/move_pillbottle_pad-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "move_playingcard_away",
+      "dataset": "move_playingcard_away-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/move_playingcard_away/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/move_playingcard_away-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "move_stapler_pad",
+      "dataset": "move_stapler_pad-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/move_stapler_pad/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/move_stapler_pad-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "open_laptop",
+      "dataset": "open_laptop-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/open_laptop/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/open_laptop-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "open_microwave",
+      "dataset": "open_microwave-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/open_microwave/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/open_microwave-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "pick_diverse_bottles",
+      "dataset": "pick_diverse_bottles-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/pick_diverse_bottles/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/pick_diverse_bottles-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "pick_dual_bottles",
+      "dataset": "pick_dual_bottles-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/pick_dual_bottles/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/pick_dual_bottles-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_a2b_left",
+      "dataset": "place_a2b_left-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_a2b_left/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_a2b_left-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_a2b_right",
+      "dataset": "place_a2b_right-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_a2b_right/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_a2b_right-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_bread_basket",
+      "dataset": "place_bread_basket-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_bread_basket/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_bread_basket-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_bread_skillet",
+      "dataset": "place_bread_skillet-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_bread_skillet/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_bread_skillet-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_burger_fries",
+      "dataset": "place_burger_fries-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_burger_fries/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_burger_fries-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_can_basket",
+      "dataset": "place_can_basket-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_can_basket/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_can_basket-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_cans_plasticbox",
+      "dataset": "place_cans_plasticbox-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_cans_plasticbox/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_cans_plasticbox-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_container_plate",
+      "dataset": "place_container_plate-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_container_plate/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_container_plate-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_dual_shoes",
+      "dataset": "place_dual_shoes-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_dual_shoes/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_dual_shoes-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_empty_cup",
+      "dataset": "place_empty_cup-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_empty_cup/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_empty_cup-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_fan",
+      "dataset": "place_fan-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_fan/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_fan-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_mouse_pad",
+      "dataset": "place_mouse_pad-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_mouse_pad/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_mouse_pad-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_object_basket",
+      "dataset": "place_object_basket-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_object_basket/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_object_basket-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_object_scale",
+      "dataset": "place_object_scale-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_object_scale/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_object_scale-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_object_stand",
+      "dataset": "place_object_stand-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_object_stand/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_object_stand-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_phone_stand",
+      "dataset": "place_phone_stand-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_phone_stand/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_phone_stand-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "place_shoe",
+      "dataset": "place_shoe-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/place_shoe/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/place_shoe-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "press_stapler",
+      "dataset": "press_stapler-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/press_stapler/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/press_stapler-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "put_bottles_dustbin",
+      "dataset": "put_bottles_dustbin-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/put_bottles_dustbin/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/put_bottles_dustbin-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "put_object_cabinet",
+      "dataset": "put_object_cabinet-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/put_object_cabinet/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/put_object_cabinet-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "rotate_qrcode",
+      "dataset": "rotate_qrcode-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/rotate_qrcode/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/rotate_qrcode-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "scan_object",
+      "dataset": "scan_object-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/scan_object/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/scan_object-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "shake_bottle",
+      "dataset": "shake_bottle-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/shake_bottle/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/shake_bottle-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "shake_bottle_horizontally",
+      "dataset": "shake_bottle_horizontally-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/shake_bottle_horizontally/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/shake_bottle_horizontally-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "stack_blocks_three",
+      "dataset": "stack_blocks_three-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/stack_blocks_three/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/stack_blocks_three-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "stack_blocks_two",
+      "dataset": "stack_blocks_two-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/stack_blocks_two/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/stack_blocks_two-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "stack_bowls_three",
+      "dataset": "stack_bowls_three-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/stack_bowls_three/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/stack_bowls_three-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "stack_bowls_two",
+      "dataset": "stack_bowls_two-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/stack_bowls_two/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/stack_bowls_two-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "stamp_seal",
+      "dataset": "stamp_seal-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/stamp_seal/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/stamp_seal-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    },
+    {
+      "task": "turn_switch",
+      "dataset": "turn_switch-aloha-agilex_clean_50-50",
+      "hdf5": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/dataset/turn_switch/aloha-agilex_clean_50",
+      "zarr": "/data/shared_workspace/zhangshiqi/dataset/RoboTwin/zarr/data/turn_switch-aloha-agilex_clean_50-50.zarr",
+      "task_config": "aloha-agilex_clean_50",
+      "expert_data_num": 50,
+      "num_episodes": 50,
+      "enabled": true
+    }
+  ]
+}

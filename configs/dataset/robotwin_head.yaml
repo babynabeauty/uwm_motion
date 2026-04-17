@@ -1,0 +1,24 @@
+_target_: datasets.robotwin.make_robotwin_zarr_dataset
+name: robotwin_head
+task_list_file: /data/workspace/zhangshiqi/uwm_motion/configs/task_lists/robotwin_files.json
+tasks_csv: ""
+shape_meta:
+  obs:
+    head_camera:
+      shape: [240, 320, 3]
+      type: rgb
+    agent_pos:
+      shape: [14]
+      type: low_dim
+  action:
+    shape: [14]
+action_slice: [0, 14]
+seq_len: ${num_frames}
+obs_seq_len: ${obs_num_frames}
+val_ratio: 0.05
+subsample_ratio: 1.0
+enabled_only: true
+state_key: state
+state_obs_key: agent_pos
+image_keys: [head_camera]
+include_language: true
