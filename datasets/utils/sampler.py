@@ -2,6 +2,19 @@ import numpy as np
 from .buffer import CompressedTrajectoryBuffer
 from transformers import CLIPTokenizer
 
+_PAD_TOKEN_ID = None
+
+
+def _get_pad_token_id() -> int:
+    global _PAD_TOKEN_ID
+    if _PAD_TOKEN_ID is None:
+        tokenizer = CLIPTokenizer.from_pretrained('/data/shared_workspace/LLM_weights/openai/clip-vit-base-patch32')
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        _PAD_TOKEN_ID = int(tokenizer.pad_token_id)
+    return _PAD_TOKEN_ID
+
+
 class TrajectorySampler:
     """
     A class that samples sequences of observations and actions from a trajectory buffer.
@@ -13,6 +26,7 @@ class TrajectorySampler:
         seq_len: int,
         episode_mask: np.ndarray = None,
         exclude_keys: set[str] | None = None,
+        obs_seq_len: int | None = None,
     ):
         """
         Initialize the trajectory sampler.
@@ -22,10 +36,14 @@ class TrajectorySampler:
             seq_len: The length of the sequences to sample.
             episode_mask: A binary mask indicating valid episodes. If None, all episodes are valid.
             exclude_keys: Keys to skip when reading from the buffer (e.g. large unused arrays).
+            obs_seq_len: Optional shorter prefix length for obs.* keys when the model only consumes
+                the first few observation frames.
         """
         self.buffer = buffer
         self.seq_len = seq_len
+        self.obs_seq_len = obs_seq_len
         self.keys = [k for k in self.buffer.keys() if k not in (exclude_keys or set())]
+        self.episode_ends_np = np.asarray(self.buffer.episode_ends, dtype=np.int64)
 
         # Compute all possible sample indices
         indices = []
@@ -39,15 +57,7 @@ class TrajectorySampler:
         # import ipdb;ipdb.set_trace()
         print(f"Total number of valid sequences: {len(self.indices)}")
 
-        # tokenizer = CLIPTokenizer.from_pretrained('/data/shared_workspace/LLM_weights/openai/clip-vit-base-patch32')
-        tokenizer = CLIPTokenizer.from_pretrained('/data/shared_workspace/LLM_weights/openai/clip-vit-base-patch32')
-
-
-        # 手动设置 pad_token
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-
-        self.pad_token_id = tokenizer.pad_token_id
+        self.pad_token_id = _get_pad_token_id()
         print("pad_token_id:", self.pad_token_id)
 
 
@@ -59,15 +69,14 @@ class TrajectorySampler:
         data = {}
         for key in self.keys:
             arr = self.buffer[key]
-            value = arr[start:end]
+            key_end = end
+            if self.obs_seq_len is not None and key.startswith("obs."):
+                key_end = min(start + self.obs_seq_len, end)
+            value = arr[start:key_end]
             data[key] = value
         
         if "input_ids" in self.buffer.meta and "attention_mask" in self.buffer.meta:
-            episode_idx = 0  # Default to first episode
-            for i, episode_end in enumerate(self.buffer.episode_ends):
-                if start < episode_end:
-                    episode_idx = i
-                    break
+            episode_idx = int(np.searchsorted(self.episode_ends_np, start, side="right"))
             ids = self.buffer.meta["input_ids"][episode_idx]
             mask = self.buffer.meta["attention_mask"][episode_idx]
             

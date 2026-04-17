@@ -1,5 +1,6 @@
 import copy
 import os
+import time
 
 from experiments.runtime_env import bootstrap_non_root_runtime
 
@@ -180,17 +181,17 @@ def process_batch(batch, obs_horizon, action_horizon, use_quantized_of, device,
                    flow_vqvae: Optional[torch.nn.Module] = None,
                    background_id: Optional[int] = None):
     # Take the first `obs_horizon` observations
-    obs = {k: v[:, :obs_horizon].to(device) for k, v in batch["obs"].items()}
+    obs = {k: v[:, :obs_horizon].to(device, non_blocking=True) for k, v in batch["obs"].items()}
 
     # Take the last `action_horizon` actions
-    action = batch["action"][:, -action_horizon:].to(device)
+    action = batch["action"][:, -action_horizon:].to(device, non_blocking=True)
     
     gt_motion = None
     if use_quantized_of:
         if action_horizon == 8:
-            flow = batch["optical_flow_8"][:,0:1].to(device)
+            flow = batch["optical_flow_8"][:,0:1].to(device, non_blocking=True)
         elif action_horizon == 16:
-            flow = batch["optical_flow_16"][:,0:1].to(device)
+            flow = batch["optical_flow_16"][:,0:1].to(device, non_blocking=True)
         else:
             raise ValueError(f"Unsupported action length: {action_horizon}")
         gt_motion = extract_vq_indices_from_flow(flow, flow_vqvae)
@@ -198,12 +199,22 @@ def process_batch(batch, obs_horizon, action_horizon, use_quantized_of, device,
         # if background_id is not None:
         #     gt_motion[gt_motion == background_id] = -1
     elif "optical_flow_raft_latent" in batch:
-        gt_motion = batch["optical_flow_raft_latent"][:, -action_horizon:].to(device)
+        gt_motion = batch["optical_flow_raft_latent"][:, -action_horizon:].to(device, non_blocking=True)
     # Add language tokens to observations
     if "input_ids" in batch and "attention_mask" in batch:
-        obs["input_ids"] = batch["input_ids"].to(device)
-        obs["attention_mask"] = batch["attention_mask"].to(device)
+        obs["input_ids"] = batch["input_ids"].to(device, non_blocking=True)
+        obs["attention_mask"] = batch["attention_mask"].to(device, non_blocking=True)
     return obs, action, gt_motion
+
+
+def _sync_for_timing(device):
+    if torch.cuda.is_available() and torch.device(device).type == "cuda":
+        torch.cuda.synchronize(device)
+
+
+def _add_timing(timings: Optional[dict], name: str, dt: float):
+    if timings is not None:
+        timings[name] = timings.get(name, 0.0) + dt
 
 
 def eval_one_epoch(config, data_loader, device, model, action_normalizer=None,
@@ -260,35 +271,57 @@ def eval_one_epoch(config, data_loader, device, model, action_normalizer=None,
 
 def train_one_step(config, model, optimizer, scheduler, scaler, batch, device,
                    flow_vqvae: Optional[torch.nn.Module] = None,
-                   background_id: Optional[int] = None):
+                   background_id: Optional[int] = None,
+                   timings: Optional[dict] = None):
     model.train()
 
     # --- Preprocess data ---
+    if timings is not None:
+        _sync_for_timing(device)
+    t0 = time.perf_counter()
     obs, action, gt_motion = process_batch(
         batch, config.model.obs_encoder.num_frames, config.model.action_len,
         config.model.noise_pred_net.use_quantized_of, device, flow_vqvae,
         background_id=background_id,
     )
+    if timings is not None:
+        _sync_for_timing(device)
+    _add_timing(timings, "to_device_and_vq", time.perf_counter() - t0)
 
     # --- DP Training ---
     # Action prediction loss
+    t0 = time.perf_counter()
     with torch.autocast(
         device_type="cuda", dtype=torch.bfloat16, enabled=config.use_amp
     ):
         loss = model(obs, action,gt_motion)
         info = {"loss": loss["loss"], "action_loss": loss["action_loss"],"motion_loss": loss["motion_loss"]}
+    if timings is not None:
+        _sync_for_timing(device)
+    _add_timing(timings, "forward", time.perf_counter() - t0)
 
     # Step optimizer
+    t0 = time.perf_counter()
     optimizer.zero_grad()
     scaler.scale(loss["loss"]).backward()
+    if timings is not None:
+        _sync_for_timing(device)
+    _add_timing(timings, "backward", time.perf_counter() - t0)
+
+    t0 = time.perf_counter()
     if config.clip_grad_norm:
         scaler.unscale_(optimizer)
         nn.utils.clip_grad_norm_(model.parameters(), config.clip_grad_norm)
     scaler.step(optimizer)
     scaler.update()
+    if timings is not None:
+        _sync_for_timing(device)
+    _add_timing(timings, "optimizer", time.perf_counter() - t0)
 
     # Step scheduler
+    t0 = time.perf_counter()
     scheduler.step()
+    _add_timing(timings, "scheduler", time.perf_counter() - t0)
     info["lr"] = scheduler.get_last_lr()[0]
     return loss, info
 

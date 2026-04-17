@@ -25,7 +25,7 @@ TASKS_CSV="${TASKS_CSV:-}"
 
 # bash scripts/libero_train_single.sh
 # # 只跑两个任务
-# TASKS_CSV="OpenDrawer,TurnOffStove" bash scripts/libero_train_single.sh
+# TASKS_CSV="CloseDoubleDoor" bash scripts/libero_train_single.sh
 # # 指定另一份清单
 # TASK_LIST_FILE=/path/to/my_tasks.json bash scripts/libero_train_single.sh
 

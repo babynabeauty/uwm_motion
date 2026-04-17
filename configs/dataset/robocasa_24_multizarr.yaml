@@ -1,0 +1,20 @@
+_target_: datasets.robomimic.make_robomimic_multizarr_dataset
+name: robocasa_24_multizarr
+task_list_file: /data/workspace/zhangshiqi/uwm_motion/configs/task_lists/robocasa_atomic_files.json
+tasks_csv: ""
+shape_meta:
+  obs:
+    robot0_agentview_left_image: &cam
+      shape: [128, 128, 3]
+      type: rgb
+    robot0_agentview_right_image: *cam
+    robot0_eye_in_hand_image: *cam
+  action:
+    shape: [7]
+action_slice: [0, 7]
+seq_len: ${num_frames}
+obs_seq_len: ${obs_num_frames}
+val_ratio: 0.05
+subsample_ratio: 1.0
+flip_rgb: False
+enabled_only: True

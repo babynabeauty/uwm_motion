@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
+from transformers import CLIPTokenizer
 
 from datasets.utils.buffer import CompressedTrajectoryBuffer
 from datasets.utils.file_utils import glob_all
@@ -27,6 +28,35 @@ def _sorted_demo_keys(demos_group: h5py.Group) -> list[str]:
     return sorted(keys, key=_key_order)
 
 
+_CLIP_TOKENIZER = None
+
+
+def _get_clip_tokenizer():
+    global _CLIP_TOKENIZER
+    if _CLIP_TOKENIZER is None:
+        _CLIP_TOKENIZER = CLIPTokenizer.from_pretrained(
+            "/data/shared_workspace/LLM_weights/openai/clip-vit-base-patch32"
+        )
+        if _CLIP_TOKENIZER.pad_token is None:
+            _CLIP_TOKENIZER.pad_token = _CLIP_TOKENIZER.eos_token
+    return _CLIP_TOKENIZER
+
+
+def _encode_task_text(task_name: str, max_length: int = 25) -> tuple[np.ndarray, np.ndarray]:
+    tokenizer = _get_clip_tokenizer()
+    tokens = tokenizer(
+        task_name,
+        padding="max_length",
+        truncation=True,
+        max_length=max_length,
+        return_tensors="np",
+    )
+    return (
+        tokens["input_ids"][0].astype(np.int64, copy=False),
+        tokens["attention_mask"][0].astype(np.int64, copy=False),
+    )
+
+
 class RobomimicDataset(Dataset):
     def __init__(
         self,
@@ -35,6 +65,7 @@ class RobomimicDataset(Dataset):
         buffer_path: str,
         shape_meta: dict,
         seq_len: int,
+        obs_seq_len: Optional[int] = None,
         val_ratio: float = 0.0,
         subsample_ratio: float = 1.0,
         flip_rgb: bool = False,
@@ -42,6 +73,7 @@ class RobomimicDataset(Dataset):
     ):
         self.name = name
         self.seq_len = seq_len
+        self.obs_seq_len = obs_seq_len
         self.flip_rgb = flip_rgb
         self._action_slice = action_slice
 
@@ -99,7 +131,12 @@ class RobomimicDataset(Dataset):
                 self.train_mask = subsampled_train_mask
 
         # Sampler to draw sequences from buffer
-        self.sampler = TrajectorySampler(self.buffer, self.seq_len, self.train_mask)
+        self.sampler = TrajectorySampler(
+            self.buffer,
+            self.seq_len,
+            self.train_mask,
+            obs_seq_len=self.obs_seq_len,
+        )
 
     def _slice_actions(self, actions: np.ndarray) -> np.ndarray:
         out = np.asarray(actions, dtype=np.float32)
@@ -243,5 +280,142 @@ class RobomimicDataset(Dataset):
     def get_validation_dataset(self):
         val_set = copy.copy(self)
         val_set.train_mask = self.val_mask
-        val_set.sampler = TrajectorySampler(self.buffer, self.seq_len, self.val_mask)
+        val_set.sampler = TrajectorySampler(
+            self.buffer,
+            self.seq_len,
+            self.val_mask,
+            obs_seq_len=self.obs_seq_len,
+        )
+        return val_set
+
+
+class RobomimicZarrDataset(Dataset):
+    def __init__(
+        self,
+        name: str,
+        zarr_path: str,
+        shape_meta: dict,
+        seq_len: int,
+        obs_seq_len: Optional[int] = None,
+        task_name: Optional[str] = None,
+        val_ratio: float = 0.0,
+        subsample_ratio: float = 1.0,
+        action_slice: Optional[tuple[int, int]] = None,
+    ):
+        self.name = name
+        self.zarr_path = zarr_path
+        self.seq_len = seq_len
+        self.obs_seq_len = obs_seq_len
+        self.task_name = task_name
+        self._action_slice = action_slice
+
+        obs_shape_meta = shape_meta["obs"]
+        self._image_shapes = {}
+        self._lowdim_shapes = {}
+        for key, attr in obs_shape_meta.items():
+            obs_type = attr["type"]
+            obs_shape = tuple(attr["shape"])
+            if obs_type == "rgb":
+                self._image_shapes[key] = obs_shape
+            elif obs_type == "low_dim":
+                self._lowdim_shapes[key] = obs_shape
+            else:
+                raise RuntimeError(f"Unsupported obs type: {obs_type}")
+        self._action_shape = tuple(shape_meta["action"]["shape"])
+        if self._action_slice is not None:
+            lo, hi = self._action_slice
+            if hi - lo != self._action_shape[0]:
+                raise ValueError(
+                    f"action_slice [{lo}:{hi}] has width {hi - lo} but shape_meta action "
+                    f"expects {self._action_shape[0]}"
+                )
+
+        self.buffer = self._init_buffer(zarr_path)
+
+        num_episodes = self.buffer.num_episodes
+        val_mask = np.zeros(num_episodes, dtype=bool)
+        if val_ratio > 0 and num_episodes >= 2:
+            num_val_episodes = round(val_ratio * num_episodes)
+            num_val_episodes = min(max(num_val_episodes, 1), num_episodes - 1)
+            rng = np.random.default_rng(seed=0)
+            val_inds = rng.choice(num_episodes, num_val_episodes, replace=False)
+            val_mask[val_inds] = True
+        self.val_mask = val_mask
+        self.train_mask = ~val_mask
+
+        if subsample_ratio < 1.0:
+            train_indices = np.where(self.train_mask)[0]
+            num_train_episodes = len(train_indices)
+            if num_train_episodes > 1:
+                num_subsampled = round(num_train_episodes * subsample_ratio)
+                num_subsampled = max(1, min(num_subsampled, num_train_episodes))
+                subsampled_train_mask = np.zeros(num_episodes, dtype=bool)
+                rng = np.random.default_rng(seed=1)
+                sampled_indices = rng.choice(train_indices, num_subsampled, replace=False)
+                subsampled_train_mask[sampled_indices] = True
+                self.train_mask = subsampled_train_mask
+
+        self.sampler = TrajectorySampler(
+            self.buffer,
+            self.seq_len,
+            self.train_mask,
+            obs_seq_len=self.obs_seq_len,
+        )
+        self._fallback_tokens = None
+        if (
+            task_name
+            and ("input_ids" not in self.buffer.meta or "attention_mask" not in self.buffer.meta)
+        ):
+            self._fallback_tokens = _encode_task_text(task_name)
+
+    def _init_buffer(self, zarr_path: str):
+        metadata = {}
+        for key, shape in self._image_shapes.items():
+            metadata[f"obs.{key}"] = {"shape": shape, "dtype": np.uint8}
+        for key, shape in self._lowdim_shapes.items():
+            metadata[f"obs.{key}"] = {"shape": shape, "dtype": np.float32}
+        metadata["action"] = {"shape": self._action_shape, "dtype": np.float32}
+        metadata["optical_flow_raft_latent"] = {
+            "shape": (4, 16, 16),
+            "dtype": np.float32,
+        }
+
+        buffer = CompressedTrajectoryBuffer(storage_path=zarr_path, metadata=metadata)
+        if not buffer.restored:
+            raise FileNotFoundError(f"Zarr dataset not found: {zarr_path}")
+        return buffer
+
+    def __len__(self) -> int:
+        return len(self.sampler)
+
+    def __repr__(self) -> str:
+        return (
+            "<RobomimicZarrDataset>\n"
+            f"name: {self.name}\n"
+            f"path: {self.zarr_path}\n"
+            f"seq_len: {self.seq_len}, obs_seq_len: {self.obs_seq_len}\n"
+            f"num_samples: {len(self)}\n"
+            f"{self.buffer}"
+        )
+
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
+        data = self.sampler.sample_sequence(idx)
+        if self._fallback_tokens is not None and "input_ids" not in data:
+            input_ids, attention_mask = self._fallback_tokens
+            data["input_ids"] = input_ids.copy()
+            data["attention_mask"] = attention_mask.copy()
+
+        data = {k: torch.from_numpy(v) for k, v in data.items()}
+        data = unflatten_obs(data)
+        return data
+
+    def get_validation_dataset(self):
+        val_set = copy.copy(self)
+        val_set.train_mask = self.val_mask
+        val_set.sampler = TrajectorySampler(
+            self.buffer,
+            self.seq_len,
+            self.val_mask,
+            obs_seq_len=self.obs_seq_len,
+        )
         return val_set

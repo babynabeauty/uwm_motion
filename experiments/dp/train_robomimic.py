@@ -1,4 +1,6 @@
 import os
+import json
+import time
 
 from experiments.runtime_env import bootstrap_non_root_runtime
 
@@ -42,6 +44,42 @@ from experiments.utils import (
 
 _CLIP_TOKENIZER = None
 
+
+def _profile_env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _profile_add(stats: dict[str, float], values: dict[str, float]):
+    for key, value in values.items():
+        stats[key] = stats.get(key, 0.0) + float(value)
+
+
+def _profile_report(rank: int, step: int, stats: dict[str, float], count: int):
+    if count <= 0:
+        return
+    ordered_keys = [
+        "dataloader_wait",
+        "to_device_and_vq",
+        "forward",
+        "backward",
+        "optimizer",
+        "scheduler",
+        "ema",
+        "wandb_log",
+        "eval",
+        "rollout",
+        "checkpoint",
+        "step_total",
+    ]
+    parts = []
+    for key in ordered_keys:
+        if key in stats:
+            parts.append(f"{key}={stats[key] / count * 1000:.1f}ms")
+    print(f"[Rank {rank}] profile step={step} avg over {count} steps | " + " | ".join(parts), flush=True)
+
 def _get_tokenizer():
     global _CLIP_TOKENIZER
     if _CLIP_TOKENIZER is None:
@@ -51,14 +89,88 @@ def _get_tokenizer():
     return _CLIP_TOKENIZER
 
 
+def _get_rollout_paths(config):
+    if hasattr(config.dataset, "hdf5_path_globs"):
+        return glob_all(config.dataset.hdf5_path_globs)
+
+    if hasattr(config.dataset, "task_list_file"):
+        with open(config.dataset.task_list_file, "r") as f:
+            data = json.load(f)
+        enabled_only = bool(getattr(config.dataset, "enabled_only", False))
+        paths = []
+        for item in data.get("items", []):
+            if enabled_only and not item.get("enabled", True):
+                continue
+            hdf5_path = str(item.get("hdf5", "")).strip()
+            if hdf5_path:
+                paths.append(hdf5_path)
+        return paths
+
+    raise ValueError("Dataset config must define hdf5_path_globs or task_list_file for rollout.")
+
+
+def _get_rollout_entries(config):
+    if hasattr(config.dataset, "hdf5_path_globs"):
+        return [
+            {
+                "task_name": os.path.basename(path).replace(".hdf5", ""),
+                "metric_name": os.path.basename(path).replace(".hdf5", ""),
+                "dataset_path": path,
+            }
+            for path in glob_all(config.dataset.hdf5_path_globs)
+        ]
+
+    if hasattr(config.dataset, "task_list_file"):
+        with open(config.dataset.task_list_file, "r") as f:
+            data = json.load(f)
+        enabled_only = bool(getattr(config.dataset, "enabled_only", False))
+        entries = []
+        for item in data.get("items", []):
+            if enabled_only and not item.get("enabled", True):
+                continue
+            hdf5_path = str(item.get("hdf5", "")).strip()
+            if not hdf5_path:
+                continue
+            task_name = str(item.get("task", "")).strip() or os.path.basename(hdf5_path).replace(".hdf5", "")
+            metric_name = str(item.get("dataset", "")).strip() or task_name
+            entries.append(
+                {
+                    "task_name": task_name,
+                    "metric_name": metric_name,
+                    "dataset_path": hdf5_path,
+                }
+            )
+        return entries
+
+    raise ValueError("Dataset config must define hdf5_path_globs or task_list_file for rollout.")
+
+
+def _log_dataset_summary(train_set, val_set, rank):
+    if rank != 0:
+        return
+
+    print(f"Train dataset size: {len(train_set)}", flush=True)
+    print(f"Val dataset size: {len(val_set)}", flush=True)
+
+    if hasattr(train_set, "datasets"):
+        print(f"Train dataset is a mixture of {len(train_set.datasets)} sub-datasets:", flush=True)
+        for i, ds in enumerate(train_set.datasets):
+            ds_name = getattr(ds, "name", f"dataset_{i}")
+            ds_task = getattr(ds, "task_name", ds_name)
+            print(
+                f"  [{i}] task={ds_task} | dataset={ds_name} | samples={len(ds)}",
+                flush=True,
+            )
+
+
 
 def collect_rollout(config, model, device, rank=0, world_size=1):
     # import ipdb;ipdb.set_trace()
     model.eval()
     model = getattr(model, "module", model)
 
-    all_hdf5_paths = glob_all(config.dataset.hdf5_path_globs)
-    my_paths = all_hdf5_paths[rank::world_size]
+    all_rollout_entries = _get_rollout_entries(config)
+    my_entries = all_rollout_entries[rank::world_size]
 
     cuda_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "0").split(",")
     render_gpu_id = int(cuda_devices[rank % len(cuda_devices)])
@@ -69,10 +181,12 @@ def collect_rollout(config, model, device, rank=0, world_size=1):
     all_results = {}
     last_video = None
 
-    print(f"[Rank {rank}] Starting rollout: {len(my_paths)} tasks assigned", flush=True)
+    print(f"[Rank {rank}] Starting rollout: {len(my_entries)} tasks assigned", flush=True)
 
-    for path in my_paths:
-        task_name = os.path.basename(path).replace(".hdf5", "")
+    for entry in my_entries:
+        path = entry["dataset_path"]
+        task_name = entry["task_name"]
+        metric_name = entry["metric_name"]
         instruction = get_rollout_instruction(config.dataset.name, path)
 
         tokens = tokenizer(
@@ -109,7 +223,7 @@ def collect_rollout(config, model, device, rank=0, world_size=1):
             successes.append(info["success"])
 
         task_sr = sum(successes) / len(successes)
-        all_results[f"rollout/success_rate_{task_name}"] = task_sr
+        all_results[f"rollout/success_rate_{metric_name}"] = task_sr
         print(f"[Rank {rank}] Task success: {task_sr:.4f}", flush=True)
         if record_video:
             last_video = env.get_video()
@@ -182,6 +296,7 @@ def train(rank, world_size, config):
         train_set, val_set, config.batch_size, rank, world_size,
         **dl_cfg,
     )
+    _log_dataset_summary(train_set, val_set, rank)
     action_normalizer = getattr(train_set, "action_normalizer", None)
     if is_main_process():
         print(
@@ -219,6 +334,18 @@ def train(rank, world_size, config):
 
     # Wrap model with DDP
     model = DistributedDataParallel(model, device_ids=[rank], static_graph=True)
+    profile_steps = _profile_env_int("UWM_PROFILE_STEPS", 0)
+    profile_every = max(1, _profile_env_int("UWM_PROFILE_EVERY", 10))
+    profile_rank = _profile_env_int("UWM_PROFILE_RANK", 0)
+    profile_enabled = profile_steps > 0 and (profile_rank < 0 or rank == profile_rank)
+    profile_stats = {}
+    profile_count = 0
+    if profile_enabled:
+        print(
+            f"[Rank {rank}] Profiling first {profile_steps} train steps "
+            f"(report every {profile_every}; timings include CUDA synchronization).",
+            flush=True,
+        )
 
     # Training loop
     pbar = tqdm(
@@ -232,31 +359,62 @@ def train(rank, world_size, config):
         train_loader.sampler.set_epoch(epoch)
 
         # Train for one epoch
-        for batch in train_loader:
+        data_iter = iter(train_loader)
+        while True:
+            do_profile = profile_enabled and profile_count < profile_steps
+            fetch_t0 = time.perf_counter()
+            try:
+                batch = next(data_iter)
+            except StopIteration:
+                break
+            if do_profile:
+                step_stats = {"dataloader_wait": time.perf_counter() - fetch_t0}
+                step_t0 = time.perf_counter()
+                train_timings = {}
+            else:
+                step_stats = None
+                train_timings = None
+
             # --- Training step ---
             loss, info = train_one_step(
                 config, model, optimizer, scheduler, scaler, batch, device,
-                flow_vqvae, background_id=background_id,
+                flow_vqvae, background_id=background_id, timings=train_timings,
             )
+            if do_profile:
+                _profile_add(step_stats, train_timings)
+
+            phase_t0 = time.perf_counter()
             update_ema_model(ema_model, model, config.ema_decay)
+            if do_profile:
+                step_stats["ema"] = time.perf_counter() - phase_t0
 
             # --- Logging ---
+            phase_t0 = time.perf_counter()
             if is_main_process():
                 pbar.set_description(f"step: {step}, loss: {loss['loss']:.4f},action_loss: {loss['action_loss']:.4f},motion_loss: {loss['motion_loss']:.4f}")
                 wandb.log({f"train/{k}": v for k, v in info.items()}, step=step)
+            if do_profile:
+                step_stats["wandb_log"] = time.perf_counter() - phase_t0
 
             # --- Evaluate if needed ---
+            phase_t0 = time.perf_counter()
             maybe_evaluate(
                 config, step, model, val_loader, device, action_normalizer,
                 flow_vqvae, eval_model=ema_model, background_id=background_id,
             )
+            if do_profile:
+                step_stats["eval"] = time.perf_counter() - phase_t0
 
             # ---Collect environment rollouts if needed ---
+            phase_t0 = time.perf_counter()
             rollout_avg_sr = maybe_collect_rollout(
                 config, step, model, device, rank, world_size, cpu_group, ema_model=ema_model
             )
+            if do_profile:
+                step_stats["rollout"] = time.perf_counter() - phase_t0
 
             # --- Save checkpoint if needed ---
+            phase_t0 = time.perf_counter()
             maybe_save_checkpoint(
                 config,
                 step,
@@ -268,6 +426,13 @@ def train(rank, world_size, config):
                 save_model=ema_model,
                 rollout_avg_sr=rollout_avg_sr,
             )
+            if do_profile:
+                step_stats["checkpoint"] = time.perf_counter() - phase_t0
+                step_stats["step_total"] = time.perf_counter() - step_t0
+                _profile_add(profile_stats, step_stats)
+                profile_count += 1
+                if profile_count % profile_every == 0 or profile_count == profile_steps:
+                    _profile_report(rank, step, profile_stats, profile_count)
 
             step += 1
             pbar.update(1)

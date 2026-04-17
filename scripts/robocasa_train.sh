@@ -7,7 +7,8 @@
 #libero_10_vqvae_stride8_voc256
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate uwm
+conda activate uwm_robocasa
+
 
 export PYTHONPATH=/data/workspace/zhangshiqi/uwm_motion:$PYTHONPATH
 export WANDB_API_KEY=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
@@ -42,8 +43,7 @@ NUM_TOKEN=256
 PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq/output/libero"
 DATASET=robocasa_24_multizarr
 
-# EXP_ID="libero_10_stride8_baseline_0411"
-# EXP_ID="libero_10_stride${action_len}_size${codebook_size}_df${DF}_${epoch}_flow_matching_0411"
+EXP_ID="robocasa_24_baseline"
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_best.pt"
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_epoch_${epoch}.pt"
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}_df${DF}/flow_vqvae_epoch_${epoch}.pt"
@@ -74,11 +74,11 @@ CUDA_VISIBLE_DEVICES=3,4,5 python experiments/dp/train_robomimic.py \
     dataloader.num_workers=4 \
     dataloader.prefetch_factor=2 \
     model.action_len=8 \
-    eval_every=10000 \
-    save_every=10000 \
-    rollout_every=10000 \
+    eval_every=20000 \
+    save_every=20000 \
+    rollout_every=20000 \
     num_rollouts=$ROLLOUT \
-    num_steps=150000 \
+    num_steps=300000 \
     batch_size=$BS \
     optimizer.lr=$LR \
     dataset=$DATASET \
