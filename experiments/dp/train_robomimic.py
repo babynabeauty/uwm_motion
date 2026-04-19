@@ -187,12 +187,7 @@ def collect_rollout(config, model, device, rank=0, world_size=1):
         path = entry["dataset_path"]
         task_name = entry["task_name"]
         metric_name = entry["metric_name"]
-        instruction = get_rollout_instruction(config.dataset.name, path)
-
-        tokens = tokenizer(
-            instruction, padding='max_length', max_length=MAX_TEXT_LEN,
-            truncation=True, return_tensors='pt'
-        ).to(device)
+        fallback_instruction = get_rollout_instruction(config.dataset.name, path)
 
         print(f"[Rank {rank}] Collecting rollouts for task: {task_name}", flush=True)
         record_video = (rank == 0)
@@ -210,6 +205,23 @@ def collect_rollout(config, model, device, rank=0, world_size=1):
         for e in trange(config.num_rollouts, desc=f"[Rank {rank}] Testing {task_name}"):
             env.seed(e)
             obs = env.reset()
+            instruction = (
+                env.get_current_language()
+                if hasattr(env, "get_current_language")
+                else None
+            ) or fallback_instruction
+            tokens = tokenizer(
+                instruction,
+                padding='max_length',
+                max_length=MAX_TEXT_LEN,
+                truncation=True,
+                return_tensors='pt',
+            ).to(device)
+            if e == 0:
+                print(
+                    f"[Rank {rank}] Rollout instruction for {task_name}: {instruction}",
+                    flush=True,
+                )
             done = False
             while not done:
                 obs_tensor = {k: torch.tensor(v, device=device)[None] for k, v in obs.items()}
@@ -237,7 +249,7 @@ def collect_rollout(config, model, device, rank=0, world_size=1):
 def maybe_collect_rollout(config, step, model, device, rank, world_size, cpu_group=None, ema_model=None):
     if getattr(config, "disable_rollout", False):
         return None
-    if step > 1 and (step % config.rollout_every == 0 or step == (config.num_steps - 1)):
+    if step > 1999 and (step % config.rollout_every == 0 or step == (config.num_steps - 1)):
         dist.barrier()
 
         rollout_model = ema_model if ema_model is not None else model

@@ -24,16 +24,8 @@ TORCH_CUDNN_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-p
 TORCH_CUBLAS_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-packages/nvidia/cublas/lib
 export LD_LIBRARY_PATH="${TORCH_CUDNN_LIB}:${TORCH_CUBLAS_LIB}:${LD_LIBRARY_PATH_CLEAN}"
 
-"""
-setsid nohup bash scripts/libero_train.sh \
-> /data/shared_workspace/zhangshiqi/uwm_motion_data/log/libero/libero_10_stride8_size256_df3_200_flow_matching_0411.log 2>&1 &
-"""
 
-"""
-setsid nohup bash scripts/libero_train.sh \
-> /data/shared_workspace/zhangshiqi/uwm_motion_data/log/robocasa/robocasa_24_baseline_0417.log 2>&1 &
-"""
-
+#setsid nohup bash scripts/robocasa_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_data/log/robocasa/robocasa_24_vqvae_0419.log 2>&1 &
 
 action_len=8
 codebook_size=64
@@ -42,19 +34,20 @@ epoch=200
 NUM_TOKEN=256
 PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq/output/libero"
 DATASET=robocasa_24_multizarr
-
+# EXP_ID="robocasa_24_vqvae128"
 EXP_ID="robocasa_24_baseline"
+
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_best.pt"
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_epoch_${epoch}.pt"
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}_df${DF}/flow_vqvae_epoch_${epoch}.pt"
 VQVAE_CKPT="/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq/output/libero_robocasa/stride_8_size128_df3_eval/flow_vqvae_epoch_120.pt"
 # VQVAE_CKPT="None"
 USE_VQVAE=False
+OPTICAL_FLOW_MASK=False
 BS=48
 LR=1e-4
 ROLLOUT=10
 RESUME=False
-OPTICAL_FLOW_MASK=True
 # DATASET=robocasa_atomic_CloseDoubleDoor
 PRETRAIN_CKPT=None
 
@@ -73,6 +66,7 @@ CUDA_VISIBLE_DEVICES=3,4,5 python experiments/dp/train_robomimic.py \
     num_frames=9 \
     dataloader.num_workers=4 \
     dataloader.prefetch_factor=2 \
+    dataloader.balance_datasets=True \
     model.action_len=8 \
     eval_every=20000 \
     save_every=20000 \
@@ -87,6 +81,5 @@ CUDA_VISIBLE_DEVICES=3,4,5 python experiments/dp/train_robomimic.py \
     resume=$RESUME \
     model.obs_encoder.pretrained_weights=clip \
     # pretrain_checkpoint_path=$PRETRAIN_CKPT 
-
 
 

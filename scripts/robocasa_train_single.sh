@@ -13,8 +13,7 @@ set -euo pipefail
 #   TASK_LIST_FILE=/path/to/robocasa_atomic_files.json bash scripts/robocasa_train_single.sh
 #
 # Background example:
-#   setsid nohup bash scripts/robocasa_train_single.sh \
-#     > /data/shared_workspace/zhangshiqi/uwm_motion_data/log/robocasa_atomic_single/master.log 2>&1 &
+#setsid nohup bash scripts/robocasa_train_single.sh > /data/shared_workspace/zhangshiqi/uwm_motion_data/log/robocasa_atomic_single/master.log 2>&1 &
 
 REPO_ROOT="${REPO_ROOT:-/data/workspace/zhangshiqi/uwm_motion}"
 TASK_LIST_FILE="${TASK_LIST_FILE:-${REPO_ROOT}/configs/task_lists/robocasa_atomic_files.json}"
@@ -77,8 +76,14 @@ TORCH_CUDNN_LIB="${TORCH_CUDNN_LIB:-/data/workspace/zhangshiqi/.conda/envs/uwm/l
 TORCH_CUBLAS_LIB="${TORCH_CUBLAS_LIB:-/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-packages/nvidia/cublas/lib}"
 export LD_LIBRARY_PATH="${TORCH_CUDNN_LIB}:${TORCH_CUBLAS_LIB}:${LD_LIBRARY_PATH_CLEAN}"
 
-GPU="${GPU:-7}"
+#GPU 记得修改！！！
+GPU="${GPU:-6}"
 LOG_ROOT="${LOG_ROOT:-/data/shared_workspace/zhangshiqi/uwm_motion_data/log/robocasa_atomic_single}"
+#vqvae相关 记得修改！！
+VQVAE_CKPT="${VQVAE_CKPT:-/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq/output/libero_robocasa/stride_8_size128_df3_eval/flow_vqvae_epoch_120.pt}"
+USE_VQVAE="${USE_VQVAE:-False}"
+OPTICAL_FLOW_MASK="${OPTICAL_FLOW_MASK:-False}"
+#baseline还是vqvae的 记得修改！！！
 RUN_TAG="${RUN_TAG:-baseline_$(date +%m%d)}"
 EXP_PREFIX="${EXP_PREFIX:-}"
 STOP_ON_ERROR="${STOP_ON_ERROR:-1}"
@@ -90,14 +95,14 @@ DF="${DF:-3}"
 epoch="${epoch:-200}"
 NUM_TOKEN="${NUM_TOKEN:-256}"
 PREFIX="${PREFIX:-/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq/output/libero}"
-VQVAE_CKPT="${VQVAE_CKPT:-/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq/output/libero_robocasa/stride_8_size128_df3_eval/flow_vqvae_epoch_120.pt}"
-USE_VQVAE="${USE_VQVAE:-False}"
+
+
 BS="${BS:-72}"
 LR="${LR:-1e-4}"
-ROLLOUT="${ROLLOUT:-10}"
+ROLLOUT="${ROLLOUT:-30}"
 RESUME="${RESUME:-False}"
-OPTICAL_FLOW_MASK="${OPTICAL_FLOW_MASK:-True}"
-NUM_STEPS="${NUM_STEPS:-15000}"
+
+NUM_STEPS="${NUM_STEPS:-10000}"
 EVAL_EVERY="${EVAL_EVERY:-1000}"
 SAVE_EVERY="${SAVE_EVERY:-1000}"
 ROLLOUT_EVERY="${ROLLOUT_EVERY:-1000}"
@@ -105,7 +110,6 @@ NUM_WORKERS="${NUM_WORKERS:-4}"
 PREFETCH_FACTOR="${PREFETCH_FACTOR:-2}"
 USE_LANGUAGE="${USE_LANGUAGE:-False}"
 IMAGENET_NORM="${IMAGENET_NORM:-True}"
-PRETRAIN_CKPT="${PRETRAIN_CKPT:-None}"
 
 run_one_task() {
   local task="$1"
@@ -151,7 +155,6 @@ run_one_task() {
     "model.obs_encoder.use_language=${USE_LANGUAGE}" \
     "model.obs_encoder.imagenet_norm=${IMAGENET_NORM}" \
     "resume=${RESUME}" \
-    "pretrain_checkpoint_path=${PRETRAIN_CKPT}" \
     2>&1 | tee "${log_file}"
 
   echo "[$(date -Iseconds)] done  task=${task} dataset=${dataset} exp_id=${exp_id}"

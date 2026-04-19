@@ -6,16 +6,22 @@ set -euo pipefail
 #
 # 用法：
 #   bash tools/generate_raft.sh
-#   GPUS_CSV="0,1,2,3" bash tools/generate_raft.sh
+#   GPUS_CSV="3,4,5,6,7" bash tools/generate_raft.sh
 #   TASKS_CSV="adjust_bottle,turn_switch" GPUS_CSV="4,5" bash tools/generate_raft.sh
 #   OVERWRITE=1 bash tools/generate_raft.sh
 
+
+LD_LIBRARY_PATH_CLEAN="$(echo "${LD_LIBRARY_PATH:-}" | tr ':' '\n' | rg -v 'cudnn-8\.2\.1-cuda11\.3_0/lib' | paste -sd ':' -)"
+TORCH_CUDNN_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-packages/nvidia/cudnn/lib
+TORCH_CUBLAS_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-packages/nvidia/cublas/lib
+export LD_LIBRARY_PATH="${TORCH_CUDNN_LIB}:${TORCH_CUBLAS_LIB}:${LD_LIBRARY_PATH_CLEAN}"
+
 TASK_LIST_FILE="${TASK_LIST_FILE:-/data/workspace/zhangshiqi/uwm_motion/configs/task_lists/robotwin_files.json}"
 TASKS_CSV="${TASKS_CSV:-}"
-GPUS_CSV="${GPUS_CSV:-0}"
+GPUS_CSV="${GPUS_CSV:-3,4,5,6,7}"
 IMG_KEY="${IMG_KEY:-obs.head_camera}"
 IMG_SIZE="${IMG_SIZE:-128}"
-FRAME_SKIP="${FRAME_SKIP:-6}"
+FRAME_SKIP="${FRAME_SKIP:-8}"
 OVERWRITE="${OVERWRITE:-0}"
 LOG_ROOT="${LOG_ROOT:-/data/shared_workspace/zhangshiqi/uwm_motion_data/log/robotwin}"
 mkdir -p "${LOG_ROOT}"

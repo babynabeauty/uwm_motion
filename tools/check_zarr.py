@@ -12,7 +12,7 @@ z3 = zarr.open(zarr_path, mode="r")
 # 读取 arr3
 arr3 = z3["data"]["obs.robot0_agentview_left_image"]
 print("arr3 shape:", arr3.shape, "dtype:", arr3.dtype)
-
+import ipdb; ipdb.set_trace()  # 进入调试器查看 arr3 的内容和结构
 # 可视化第 0 帧（可改 index）
 idx = 100
 img = np.asarray(arr3[idx])

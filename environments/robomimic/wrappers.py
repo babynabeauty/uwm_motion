@@ -54,6 +54,9 @@ class RoboMimicEnvWrapper:
 
         return self._get_obs()
 
+    def get_current_language(self):
+        return None
+
     def step(self, actions):
         # Roll out a sequence of actions in the environment
         total_reward = 0
@@ -202,6 +205,19 @@ class RoboCasaEnvWrapper(RoboMimicEnvWrapper):
         if isinstance(s, dict):
             return bool(s.get("task", False))
         return bool(s)
+
+    def get_current_language(self):
+        for obj in (self.env, getattr(self.env, "env", None)):
+            if obj is None:
+                continue
+            lang = getattr(obj, "_ep_lang_str", None)
+            if lang:
+                return str(lang)
+            if hasattr(obj, "get_ep_meta"):
+                ep_meta = obj.get_ep_meta()
+                if isinstance(ep_meta, dict) and ep_meta.get("lang"):
+                    return str(ep_meta["lang"])
+        return None
 
     def step(self, actions):
         total_reward = 0
