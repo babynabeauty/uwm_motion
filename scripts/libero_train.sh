@@ -23,15 +23,7 @@ TORCH_CUDNN_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-p
 TORCH_CUBLAS_LIB=/data/workspace/zhangshiqi/.conda/envs/uwm/lib/python3.10/site-packages/nvidia/cublas/lib
 export LD_LIBRARY_PATH="${TORCH_CUDNN_LIB}:${TORCH_CUBLAS_LIB}:${LD_LIBRARY_PATH_CLEAN}"
 
-"""
-setsid nohup bash scripts/libero_train.sh \
-> /data/shared_workspace/zhangshiqi/uwm_motion_data/log/libero/libero_10_stride8_size256_df3_200_flow_matching_0411.log 2>&1 &
-"""
-
-"""
-setsid nohup bash scripts/libero_train.sh \
-> /data/shared_workspace/zhangshiqi/uwm_motion_data/log/robocasa/robocasa_24_baseline_0417.log 2>&1 &
-"""
+# setsid nohup bash scripts/libero_train.sh > /data/shared_workspace/zhangshiqi/uwm_motion_data/log/libero/libero_10_stride8_libero_robocasa_sthv2_size256_df3_200_0420.log 2>&1 &
 
 
 action_len=8
@@ -39,26 +31,26 @@ codebook_size=64
 DF=3
 epoch=200
 NUM_TOKEN=256
-PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq/output/libero"
-DATASET=robocasa_24_multizarr
-
+PREFIX="/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq/output/"
+VQVAE_TRAINSET="libero_robocasa_sthv2"
+DATASET=libero_10
+# DATASET=robocasa_atomic_CloseDoubleDoor
 # EXP_ID="libero_10_stride8_baseline_0411"
-# EXP_ID="libero_10_stride${action_len}_size${codebook_size}_df${DF}_${epoch}_flow_matching_0411"
+EXP_ID="libero_10_stride${action_len}_${VQVAE_TRAINSET}_size${codebook_size}_df${DF}_${epoch}_0420"
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_best.pt"
 # VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}/flow_vqvae_epoch_${epoch}.pt"
-# VQVAE_CKPT="${PREFIX}/flow_vq_results_stride${action_len}_size${codebook_size}_df${DF}/flow_vqvae_epoch_${epoch}.pt"
-VQVAE_CKPT="/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq/output/libero_robocasa/stride_8_size128_df3_eval/flow_vqvae_epoch_120.pt"
+VQVAE_CKPT="${PREFIX}/${VQVAE_TRAINSET}/stride_${action_len}_size${codebook_size}_df${DF}/flow_vqvae_epoch_${epoch}.pt"
+# VQVAE_CKPT="/data/shared_workspace/zhangshiqi/uwm_motion_data/laq/laq/output/libero_robocasa/stride_8_size128_df3_eval/flow_vqvae_epoch_120.pt"
 # VQVAE_CKPT="None"
-USE_VQVAE=False
-BS=48
+USE_VQVAE=True
+BS=18
 LR=1e-4
 ROLLOUT=10
 RESUME=False
 OPTICAL_FLOW_MASK=True
-# DATASET=robocasa_atomic_CloseDoubleDoor
 PRETRAIN_CKPT=None
 
-CUDA_VISIBLE_DEVICES=3,4,5 python experiments/dp/train_robomimic.py \
+CUDA_VISIBLE_DEVICES=1,2,3,4 python experiments/dp/train_robomimic.py \
     --config-name train_dp_robomimic.yaml \
     exp_id=$EXP_ID \
     model.noise_pred_net.use_motion_token=False \
